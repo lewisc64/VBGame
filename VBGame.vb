@@ -1,5 +1,44 @@
 ﻿Imports System.Windows.Forms
 
+Public Class MouseEvent
+    Public Shared MouseMove As Byte = 0
+    Public Shared MouseDown As Byte = 1
+    Public Shared MouseUp As Byte = 2
+    Public Shared ButtonLeft As Byte = 3
+    Public Shared ButtonRight As Byte = 4
+    Public Shared ButtonMiddle As Byte = 5
+    Public Shared MouseScroll As Byte = 6
+    Public Shared ScrollUp As Byte = 7
+    Public Shared ScrollDown As Byte = 8
+
+    Public action As Byte
+    Public location As Point
+    Public button As Byte
+
+    Public Sub New(locationt As Point, actiont As Byte, buttont As Byte)
+        action = actiont
+        location = locationt
+        button = buttont
+    End Sub
+
+    Public Shared Function InterpretFormEvent(e As MouseEventArgs, action As Byte)
+        Dim button As Byte
+        If action = MouseEvent.MouseDown Or action = MouseEvent.MouseUp Then
+            If e.Button = MouseButtons.Left Then
+                button = ButtonLeft
+            ElseIf e.Button = MouseButtons.Right Then
+                button = ButtonRight
+            ElseIf e.Button = MouseButtons.Middle Then
+                button = ButtonMiddle
+            End If
+        ElseIf action = MouseEvent.MouseScroll Then
+            'DO SHIT HERE
+        End If
+        Return New MouseEvent(e.Location, action, button)
+    End Function
+
+End Class
+
 Public Class VBGame
 
     ''' <summary>
@@ -46,6 +85,8 @@ Public Class VBGame
 
     Private keyupevents As New List(Of String)
     Private keydownevents As New List(Of String)
+
+    Private mouseevents As New List(Of MouseEvent)
     Public mouse As MouseEventArgs
     Public mouse_left As MouseButtons = MouseButtons.Left
     Public mouse_right As MouseButtons = MouseButtons.Right
@@ -88,6 +129,10 @@ Public Class VBGame
         keydownevents.Add(key)
     End Sub
 
+    Sub pushMouseEvent(e As MouseEvent)
+        mouseevents.Add(e)
+    End Sub
+
     Function getKeyUpEvents()
         Dim tlist As List(Of String)
         Try
@@ -110,7 +155,32 @@ Public Class VBGame
         Return tlist
     End Function
 
-    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseMove, form.MouseDown
+    Function getMouseEvents()
+        Dim tlist As List(Of MouseEvent)
+        Try
+            tlist = mouseevents.ToList()
+        Catch ex As ArgumentException
+            tlist = New List(Of MouseEvent)
+        End Try
+        mouseevents.Clear()
+        Return tlist
+    End Function
+
+    Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseWheel
+        mouse = e
+    End Sub
+
+    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseMove
+        mouse = e
+    End Sub
+
+    Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDown
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseDown))
+        mouse = e
+    End Sub
+
+    Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseClick
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseUp))
         mouse = e
     End Sub
 
@@ -268,8 +338,8 @@ Public Class Sprite
     Public frames As Integer = 0
     Public color As System.Drawing.Color = color.White
 
-    Public Function clone() As sprite
-        Return DirectCast(Me.MemberwiseClone(), sprite)
+    Public Function clone() As Sprite
+        Return DirectCast(Me.MemberwiseClone(), Sprite)
     End Function
 
     Sub move(Optional trig As Boolean = False)
@@ -445,8 +515,8 @@ Class Button
         vbgame = vbgamet
     End Sub
 
-    Public Function clone() As button
-        Return DirectCast(Me.MemberwiseClone(), button)
+    Public Function clone() As Button
+        Return DirectCast(Me.MemberwiseClone(), Button)
     End Function
 
     Sub setColor(inactivecolor As System.Drawing.Color, activecolor As System.Drawing.Color)
