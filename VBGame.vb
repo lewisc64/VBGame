@@ -1,4 +1,5 @@
-﻿Imports System.Windows.Forms
+
+Imports System.Windows.Forms
 
 Public Class MouseEvent
     Public Shared MouseMove As Byte = 0
@@ -61,7 +62,7 @@ Public Class VBGame
     '''     
     ''' End While
     ''' </summary>
-    ''' <remarks>Version 0.7</remarks>
+    ''' <remarks>Version 0.8</remarks>
 
     Private WithEvents form As Form
     Public displaybuffer As System.Drawing.BufferedGraphics
@@ -92,26 +93,21 @@ Public Class VBGame
     Public mouse_right As MouseButtons = MouseButtons.Right
     Public mouse_middle As MouseButtons = MouseButtons.Middle
 
-    Sub setDisplay(ByRef f As Form, resolution As String, Optional title As String = "", Optional fullscreen As Boolean = False)
+    Sub setDisplay(ByRef f As Form, resolution As Size, Optional title As String = "", Optional fullscreen As Boolean = False)
         form = f
-        width = CInt(resolution.Split({"x"}, StringSplitOptions.None)(0))
-        height = CInt(resolution.Split({"x"}, StringSplitOptions.None)(1))
 
-        form.Width = width
-        form.Height = height
-        form.Width += form.Width - form.DisplayRectangle().Width
-        form.Height += form.Height - form.DisplayRectangle().Height
+        setSize(resolution)
 
-        form.Text = title
+        form.Invoke(Sub() form.Text = title)
 
-        form.KeyPreview = True
+        form.Invoke(Sub() form.KeyPreview = True)
 
         If fullscreen Then
-            form.FormBorderStyle = Windows.Forms.FormBorderStyle.None
-            form.WindowState = FormWindowState.Maximized
+            form.Invoke(Sub() form.FormBorderStyle = Windows.Forms.FormBorderStyle.None)
+            form.Invoke(Sub() form.WindowState = FormWindowState.Maximized)
         Else
-            form.FormBorderStyle = Windows.Forms.FormBorderStyle.FixedSingle
-            form.WindowState = FormWindowState.Normal
+            form.Invoke(Sub() form.FormBorderStyle = Windows.Forms.FormBorderStyle.FixedSingle)
+            form.Invoke(Sub() form.WindowState = FormWindowState.Normal)
         End If
 
         displaycontext = BufferedGraphicsManager.Current
@@ -119,6 +115,15 @@ Public Class VBGame
 
         Windows.Forms.Cursor.Position = New Point(width / 2 + form.Location.X, height / 2 + form.Location.Y)
 
+    End Sub
+
+    Sub setSize(size As Size)
+        width = size.Width
+        height = size.Height
+        form.Invoke(Sub() form.Width = width)
+        form.Invoke(Sub() form.Height = height)
+        form.Invoke(Sub() form.Width += form.Width - form.DisplayRectangle().Width)
+        form.Invoke(Sub() form.Height += form.Height - form.DisplayRectangle().Height)
     End Sub
 
     Sub pushKeyUpEvent(key As String)
@@ -166,34 +171,35 @@ Public Class VBGame
         Return tlist
     End Function
 
-    Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseWheel
+    Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseWheel
         mouse = e
     End Sub
 
-    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseMove
+    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseMove
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseMove))
         mouse = e
     End Sub
 
-    Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDown
+    Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseDown
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseDown))
         mouse = e
     End Sub
 
-    Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseClick
+    Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseClick
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseUp))
         mouse = e
     End Sub
 
-    Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyDown
+    Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyDown
         keydownevents.Add(e.KeyCode().ToString())
     End Sub
 
-    Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyUp
+    Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyUp
         keyupevents.Add(e.KeyCode().ToString())
     End Sub
 
-    Sub clockTick(fps As Decimal)
-        Dim tfps As Decimal
+    Sub clockTick(fps As Double)
+        Dim tfps As Double
         tfps = 1000 / fps
         While fpstimer.ElapsedMilliseconds < tfps
         End While
@@ -325,22 +331,28 @@ End Class
 '======================================== GENERIC SPRITE CLASS ========================================
 Public Class Sprite
     Public image As Image
-    Public width As Decimal = 0
-    Public height As Decimal = 0
-    Public x As Decimal = 0
-    Public y As Decimal = 0
-    Public pxc As Decimal = 0
-    Public nxc As Decimal = 0
-    Public pyc As Decimal = 0
-    Public nyc As Decimal = 0
-    Public angle As Decimal = 0
-    Public speed As Decimal = 0
+    Public width As Double = 0
+    Public height As Double = 0
+    Public x As Double = 0
+    Public y As Double = 0
+    Public pxc As Double = 0
+    Public nxc As Double = 0
+    Public pyc As Double = 0
+    Public nyc As Double = 0
+    Public angle As Double = 0
+    Public speed As Double = 0
     Public frames As Integer = 0
     Public color As System.Drawing.Color = color.White
 
     Public Function clone() As Sprite
         Return DirectCast(Me.MemberwiseClone(), Sprite)
     End Function
+
+    Public Sub New(Optional rect As Rectangle = Nothing)
+        If Not IsNothing(rect) Then
+            setRect(rect)
+        End If
+    End Sub
 
     Sub move(Optional trig As Boolean = False)
         Dim mp As PointF
@@ -350,7 +362,7 @@ Public Class Sprite
     End Sub
 
     Function calcMove(Optional trig As Boolean = False) As PointF
-        Dim xt, yt As Decimal
+        Dim xt, yt As Double
         If trig Then
             xt = x + Math.Cos(angle * (Math.PI / 180)) * speed
             yt = y + Math.Sin(angle * (Math.PI / 180)) * speed
@@ -361,7 +373,7 @@ Public Class Sprite
         Return New PointF(xt, yt)
     End Function
 
-    Sub normalizeAngle()
+    Private Sub normalizeAngle()
         While angle > 360
             angle -= 360
         End While
@@ -469,7 +481,7 @@ Public Class Sprite
         Return New Point(x + width / 2, y + height / 2)
     End Function
 
-    Function getRadius() As Decimal
+    Function getRadius() As Double
         Return (getRect().Width / 2 + getRect().Width / 2) / 2
     End Function
 
@@ -496,91 +508,91 @@ End Class
 
 '======================================== GENERIC BUTTON CLASS ========================================
 Class Button
-    Public x As Decimal = 0
-    Public y As Decimal = 0
-    Public width As Decimal = 0
-    Public height As Decimal = 0
 
-    Public bgcolorinactive As System.Drawing.Color = Color.White
-    Public bgcoloractive As System.Drawing.Color = Color.White
-    Public textcolor As System.Drawing.Color = Color.Black
+    Inherits Sprite
+
+    ''' <summary>
+    ''' Put in vbgame.getMouseEvents() loop.
+    ''' </summary>
+    ''' <remarks></remarks>
 
     Public vbgame As VBGame
+    Public hover As Boolean = False
+    Public hovercolor As Color
+    Public hoverimage As Image
 
-    Public text As String = ""
-    Public fontsize As Single = 16
-    Public fontname As String = "Arial"
+    Public text As String
+    Public hovertext As String
+    Public fontsize As Integer
+    Public fontname As String
+    Public textcolor As System.Drawing.Color
+    Public hovertextcolor As System.Drawing.Color
 
-    Sub useDisplay(ByRef vbgamet As VBGame)
+    Public Sub New(ByRef vbgamet As VBGame, textt As String, Optional rect As Rectangle = Nothing, Optional fontnamet As String = "Arial", Optional fontsizet As Integer = 0)
         vbgame = vbgamet
-    End Sub
-
-    Public Function clone() As Button
-        Return DirectCast(Me.MemberwiseClone(), Button)
-    End Function
-
-    Sub setColor(inactivecolor As System.Drawing.Color, activecolor As System.Drawing.Color)
-        bgcolorinactive = inactivecolor
-        bgcoloractive = activecolor
-    End Sub
-
-    Sub draw(active As Boolean)
-        Dim font As New Font(fontname, fontsize)
-        If active Then
-            vbgame.drawRect(getRect(), bgcoloractive)
-        Else
-            vbgame.drawRect(getRect(), bgcolorinactive)
+        If Not IsNothing(rect) Then
+            setRect(rect)
         End If
-        vbgame.drawCenteredText(getRect(), text, textcolor, fontsize, fontname)
+        If fontsizet = 0 Then
+            calculateFontSize()
+        Else
+            fontsize = fontsizet
+        End If
+        fontname = fontnamet
+        text = textt
     End Sub
 
-    Function handle(Optional drawb As Boolean = True) As MouseButtons
-        Dim buttondown As MouseButtons = MouseButtons.None
-        If Not IsNothing(vbgame.mouse) Then
-            If vbgame.collideRect(New Rectangle(vbgame.mouse.Location.X, vbgame.mouse.Location.Y, 1, 1), getRect()) Then
-                If drawb Then
-                    draw(True)
-                End If
-                buttondown = vbgame.mouse.Button
+    Public Sub calculateFontSize()
+        fontsize = Math.Min(getRect().Height / 2, getRect().Width / 2)
+    End Sub
+
+    Public Sub setColor(mouseoff As System.Drawing.Color, mouseon As System.Drawing.Color)
+        color = mouseoff
+        hovercolor = mouseon
+    End Sub
+
+    Public Sub setTextColor(mouseoff As System.Drawing.Color, mouseon As System.Drawing.Color)
+        textcolor = mouseoff
+        hovertextcolor = mouseon
+    End Sub
+
+    Public Sub draw()
+        If IsNothing(image) Then
+            If hover Then
+                vbgame.drawRect(getRect(), hovercolor)
             Else
-                If drawb Then
-                    draw(False)
-                End If
+                vbgame.drawRect(getRect(), color)
             End If
         Else
-            If drawb Then
-                draw(False)
+            If hover Then
+                vbgame.blit(hoverimage, getRect())
+            Else
+                vbgame.blit(image, getRect())
             End If
         End If
-        Return buttondown
-    End Function
 
-    Sub setRect(rect As Rectangle)
-        x = rect.X
-        y = rect.Y
-        width = rect.Width
-        height = rect.Height
+        If hover Then
+            If IsNothing(hovertext) Then
+                vbgame.drawCenteredText(getRect(), text, hovertextcolor, fontsize, fontname)
+            Else
+                vbgame.drawCenteredText(getRect(), hovertext, hovertextcolor, fontsize, fontname)
+            End If
+        Else
+            vbgame.drawCenteredText(getRect(), text, textcolor, fontsize, fontname)
+        End If
+
     End Sub
 
-    Sub setXY(point As Point)
-        x = point.X
-        y = point.Y
-    End Sub
-
-    Function getRect() As Rectangle
-        Return New Rectangle(x, y, width, height)
-    End Function
-
-    Function getXY() As Point
-        Return New Point(x, y)
-    End Function
-
-    Function getCenter() As Point
-        Return New Point(x + width / 2, y + height / 2)
-    End Function
-
-    Function getRadius() As Decimal
-        Return (getRect().Width / 2 + getRect().Width / 2) / 2
+    Public Function handle(e As MouseEvent)
+        If vbgame.collideRect(New Rectangle(e.location.X, e.location.Y, 1, 1), getRect()) Then
+            hover = True
+            If e.action = MouseEvent.MouseUp Then
+                Return e.button
+            End If
+        Else
+            hover = False
+        End If
+        Return Nothing
     End Function
 
 End Class
