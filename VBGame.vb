@@ -113,8 +113,6 @@ Public Class VBGame
         displaycontext = BufferedGraphicsManager.Current
         displaybuffer = displaycontext.Allocate(form.CreateGraphics, form.DisplayRectangle)
 
-        Windows.Forms.Cursor.Position = New Point(width / 2 + form.Location.X, height / 2 + form.Location.Y)
-
     End Sub
 
     Sub setSize(size As Size)
@@ -171,30 +169,30 @@ Public Class VBGame
         Return tlist
     End Function
 
-    Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseWheel
+    Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseWheel
         mouse = e
     End Sub
 
-    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseMove
+    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseMove
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseMove))
         mouse = e
     End Sub
 
-    Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseDown
+    Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDown
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseDown))
         mouse = e
     End Sub
 
-    Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseClick
+    Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseClick
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseUp))
         mouse = e
     End Sub
 
-    Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyDown
+    Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyDown
         keydownevents.Add(e.KeyCode().ToString())
     End Sub
 
-    Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyUp
+    Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyUp
         keyupevents.Add(e.KeyCode().ToString())
     End Sub
 
@@ -207,6 +205,10 @@ Public Class VBGame
         fpstimer.Start()
     End Sub
 
+    Function getTime()
+        Return fpstimer.ElapsedMilliseconds
+    End Function
+
     Sub update()
         Try
             displaybuffer.Render()
@@ -216,13 +218,7 @@ Public Class VBGame
     End Sub
 
     Function collideRect(rect1 As Rectangle, rect2 As Rectangle) As Boolean
-        Dim collision As Boolean = False
-        Dim crect As Rectangle
-        crect = Rectangle.Intersect(rect1, rect2)
-        If crect <> New Rectangle(0, 0, 0, 0) Then
-            collision = True
-        End If
-        Return collision
+        Return rect1.IntersectsWith(rect2)
     End Function
 
     Function getRect() As Rectangle
@@ -245,11 +241,9 @@ Public Class VBGame
     End Function
 
     Sub saveImage(path As String)
-        'Dim Bitmap As Bitmap = New Bitmap(width, height, displaybuffer.Graphics)
         Dim bitmap As Bitmap
         bitmap = getImageFromDisplay()
         bitmap.Save(path, System.Drawing.Imaging.ImageFormat.Bmp)
-        'displaybuffer.Graphics.from()
     End Sub
 
     'drawing -----------------------------------------------------------------------
@@ -275,7 +269,6 @@ Public Class VBGame
 
     Sub drawCenteredText(rect As Rectangle, s As String, color As System.Drawing.Color, Optional fontsize As Single = 16, Optional fontname As String = "Arial")
         Dim font As New System.Drawing.Font(fontname, fontsize)
-        Dim format As New System.Drawing.StringFormat
         TextRenderer.DrawText(displaybuffer.Graphics, s, font, rect, color, color.Empty, TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter)
     End Sub
 
@@ -298,15 +291,15 @@ Public Class VBGame
 
     'shape drawing ------------------------------------------------------------------
     Sub drawRect(rect As Rectangle, color As System.Drawing.Color, Optional filled As Boolean = True)
-        Dim pen As New Pen(color)
-        Dim brush As New System.Drawing.SolidBrush(color)
         If filled Then
+            Dim brush As New System.Drawing.SolidBrush(color)
             displaybuffer.Graphics.FillRectangle(brush, rect)
+            brush.Dispose()
         Else
+            Dim pen As New Pen(color)
             displaybuffer.Graphics.DrawRectangle(pen, rect)
+            pen.Dispose()
         End If
-        brush.Dispose()
-        pen.Dispose()
     End Sub
 
     Sub drawCircle(center As Point, radius As Integer, color As System.Drawing.Color, Optional filled As Boolean = True)
@@ -315,15 +308,15 @@ Public Class VBGame
     End Sub
 
     Sub drawEllipse(rect As Rectangle, color As System.Drawing.Color, Optional filled As Boolean = True)
-        Dim pen As New Pen(color)
-        Dim brush As New System.Drawing.SolidBrush(color)
         If filled Then
-            displaybuffer.Graphics.FillEllipse(brush, rect)
+            Dim brush As New System.Drawing.SolidBrush(color)
+            displaybuffer.Graphics.FillEllipse(Brush, rect)
+            Brush.Dispose()
         Else
+            Dim pen As New Pen(color)
             displaybuffer.Graphics.DrawEllipse(pen, rect)
+            pen.Dispose()
         End If
-        brush.Dispose()
-        pen.Dispose()
     End Sub
 
 End Class
@@ -533,17 +526,21 @@ Class Button
         If Not IsNothing(rect) Then
             setRect(rect)
         End If
+        text = textt
+        fontname = fontnamet
         If fontsizet = 0 Then
             calculateFontSize()
         Else
             fontsize = fontsizet
         End If
-        fontname = fontnamet
-        text = textt
     End Sub
 
     Public Sub calculateFontSize()
-        fontsize = Math.Min(getRect().Height / 2, getRect().Width / 2)
+        For f As Integer = 1 To 75
+            If vbgame.displaybuffer.Graphics.MeasureString(text, New Font(fontname, f)).Width < width Then
+                fontsize = f
+            End If
+        Next
     End Sub
 
     Public Sub setColor(mouseoff As System.Drawing.Color, mouseon As System.Drawing.Color)
