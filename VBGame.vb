@@ -1,20 +1,28 @@
 
 Imports System.Windows.Forms
 
-Public Class MouseEvent
-    Public Shared MouseMove As Byte = 0
-    Public Shared MouseDown As Byte = 1
-    Public Shared MouseUp As Byte = 2
-    Public Shared ButtonLeft As Byte = 3
-    Public Shared ButtonRight As Byte = 4
-    Public Shared ButtonMiddle As Byte = 5
-    Public Shared MouseScroll As Byte = 6
-    Public Shared ScrollUp As Byte = 7
-    Public Shared ScrollDown As Byte = 8
 
-    Public action As Byte
+Public Class MouseEvent
+
+    Enum buttons
+        none
+        left
+        right
+        middle
+        scrollUp
+        scrollDown
+    End Enum
+
+    Enum actions
+        move
+        down
+        up
+        scroll
+    End Enum
+
+    Public action
     Public location As Point
-    Public button As Byte
+    Public button
 
     Public Sub New(locationt As Point, actiont As Byte, buttont As Byte)
         action = actiont
@@ -24,16 +32,20 @@ Public Class MouseEvent
 
     Public Shared Function InterpretFormEvent(e As MouseEventArgs, action As Byte)
         Dim button As Byte
-        If action = MouseEvent.MouseDown Or action = MouseEvent.MouseUp Then
+        If action = actions.down Or action = actions.up Then
             If e.Button = MouseButtons.Left Then
-                button = ButtonLeft
+                button = buttons.left
             ElseIf e.Button = MouseButtons.Right Then
-                button = ButtonRight
+                button = buttons.right
             ElseIf e.Button = MouseButtons.Middle Then
-                button = ButtonMiddle
+                button = buttons.middle
             End If
-        ElseIf action = MouseEvent.MouseScroll Then
-            'DO SHIT HERE
+        ElseIf action = actions.scroll Then
+            If e.Delta > 0 Then
+                button = buttons.scrollUp
+            ElseIf e.Delta < 0 Then
+                button = buttons.scrollDown
+            End If
         End If
         Return New MouseEvent(e.Location, action, button)
     End Function
@@ -170,21 +182,27 @@ Public Class VBGame
     End Function
 
     Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseWheel
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.scroll))
         mouse = e
     End Sub
 
     Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseMove
-        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseMove))
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.move))
         mouse = e
     End Sub
 
     Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDown
-        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseDown))
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.down))
         mouse = e
     End Sub
 
     Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseClick
-        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.MouseUp))
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.up))
+        mouse = e
+    End Sub
+
+    Private Sub form_MouseDoubleClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDoubleClick
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.up))
         mouse = e
     End Sub
 
@@ -310,8 +328,8 @@ Public Class VBGame
     Sub drawEllipse(rect As Rectangle, color As System.Drawing.Color, Optional filled As Boolean = True)
         If filled Then
             Dim brush As New System.Drawing.SolidBrush(color)
-            displaybuffer.Graphics.FillEllipse(Brush, rect)
-            Brush.Dispose()
+            displaybuffer.Graphics.FillEllipse(brush, rect)
+            brush.Dispose()
         Else
             Dim pen As New Pen(color)
             displaybuffer.Graphics.DrawEllipse(pen, rect)
@@ -583,13 +601,13 @@ Class Button
     Public Function handle(e As MouseEvent)
         If vbgame.collideRect(New Rectangle(e.location.X, e.location.Y, 1, 1), getRect()) Then
             hover = True
-            If e.action = MouseEvent.MouseUp Then
+            If e.action = MouseEvent.actions.up Then
                 Return e.button
             End If
         Else
             hover = False
         End If
-        Return Nothing
+        Return MouseEvent.buttons.none
     End Function
 
 End Class
