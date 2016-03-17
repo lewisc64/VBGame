@@ -96,8 +96,8 @@ Public Class VBGame
 
     Private fpstimer As Stopwatch = Stopwatch.StartNew()
 
-    Private keyupevents As New List(Of String)
-    Private keydownevents As New List(Of String)
+    Private keyupevents As New List(Of KeyEventArgs)
+    Private keydownevents As New List(Of KeyEventArgs)
 
     Private mouseevents As New List(Of MouseEvent)
     Public mouse As MouseEventArgs
@@ -105,7 +105,7 @@ Public Class VBGame
     Public mouse_right As MouseButtons = MouseButtons.Right
     Public mouse_middle As MouseButtons = MouseButtons.Middle
 
-    Sub setDisplay(ByRef f As Form, resolution As Size, Optional title As String = "", Optional fullscreen As Boolean = False)
+    Sub setDisplay(ByRef f As Form, resolution As Size, Optional title As String = "", Optional sharppixels As Boolean = False, Optional fullscreen As Boolean = False)
         form = f
 
         setSize(resolution)
@@ -124,6 +124,10 @@ Public Class VBGame
 
         displaycontext = BufferedGraphicsManager.Current
         displaybuffer = displaycontext.Allocate(form.CreateGraphics, form.DisplayRectangle)
+        If sharppixels Then
+            displaybuffer.Graphics.SmoothingMode = Drawing2D.SmoothingMode.None
+            displaybuffer.Graphics.InterpolationMode = Drawing2D.InterpolationMode.NearestNeighbor
+        End If
 
     End Sub
 
@@ -136,11 +140,11 @@ Public Class VBGame
         form.Invoke(Sub() form.Height += form.Height - form.DisplayRectangle().Height)
     End Sub
 
-    Sub pushKeyUpEvent(key As String)
+    Sub pushKeyUpEvent(key As KeyEventArgs)
         keyupevents.Add(key)
     End Sub
 
-    Sub pushKeyDownEvent(key As String)
+    Sub pushKeyDownEvent(key As KeyEventArgs)
         keydownevents.Add(key)
     End Sub
 
@@ -149,22 +153,22 @@ Public Class VBGame
     End Sub
 
     Function getKeyUpEvents()
-        Dim tlist As List(Of String)
+        Dim tlist As List(Of KeyEventArgs)
         Try
             tlist = keyupevents.ToList()
         Catch ex As ArgumentException
-            tlist = New List(Of String)
+            tlist = New List(Of KeyEventArgs)
         End Try
         keyupevents.Clear()
         Return tlist
     End Function
 
     Function getKeyDownEvents()
-        Dim tlist As List(Of String)
+        Dim tlist As List(Of KeyEventArgs)
         Try
             tlist = keydownevents.ToList()
         Catch ex As ArgumentException
-            tlist = New List(Of String)
+            tlist = New List(Of KeyEventArgs)
         End Try
         keydownevents.Clear()
         Return tlist
@@ -207,11 +211,11 @@ Public Class VBGame
     End Sub
 
     Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyDown
-        keydownevents.Add(e.KeyCode().ToString())
+        keydownevents.Add(e)
     End Sub
 
     Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyUp
-        keyupevents.Add(e.KeyCode().ToString())
+        keyupevents.Add(e)
     End Sub
 
     Sub clockTick(fps As Double)
@@ -274,7 +278,9 @@ Public Class VBGame
     End Sub
 
     Sub blit(image As Image, rect As Rectangle)
-        displaybuffer.Graphics.DrawImage(image, rect)
+        If Not IsNothing(image) Then
+            displaybuffer.Graphics.DrawImage(image, rect)
+        End If
     End Sub
 
     Sub drawText(point As Point, s As String, color As System.Drawing.Color, Optional fontsize As Single = 16, Optional fontname As String = "Arial")
@@ -339,6 +345,125 @@ Public Class VBGame
 
 End Class
 
+Public Class Animation
+
+    Public frames As New List(Of Image)
+    Public interval As Integer 'time between frames (ms)
+    Public index As Integer 'current frame
+
+    Public playing As Boolean
+
+    Public loopanim As Boolean = True
+
+    Public timer As New Stopwatch
+
+    Sub playAnim()
+        playing = True
+        timer.Start()
+    End Sub
+
+    Sub stopAnim()
+        playing = False
+        timer.Reset()
+        index = 0
+    End Sub
+
+    Sub pauseAnim()
+        playing = False
+        timer.Stop()
+    End Sub
+
+    Sub New(strip As Image, rowcolumn As Size, timing As Integer, Optional nframes As Integer = 0, Optional reverse As Boolean = False, Optional animloop As Boolean = True)
+        loopanim = animloop
+        index = 0
+        interval = timing
+        getFramesFromStrip(strip, rowcolumn, nframes, reverse)
+        playing = False
+    End Sub
+
+    Sub getFramesFromStrip(strip As Image, rowcolumn As Size, Optional nframes As Integer = 0, Optional reverse As Boolean = False)
+        Dim n As Integer = 0
+        Dim frame As Image = New Bitmap(CInt(strip.Width / rowcolumn.Width), CInt(strip.Height / rowcolumn.Height))
+        Dim g As Graphics = Graphics.FromImage(frame)
+        g.SmoothingMode = Drawing2D.SmoothingMode.None
+        g.InterpolationMode = Drawing2D.InterpolationMode.NearestNeighbor
+        For y As Integer = 0 To strip.Height - frame.Height Step frame.Height
+            For x As Integer = 0 To strip.Width - frame.Width Step frame.Width
+                n += 1
+                g.DrawImage(strip, New Rectangle(0, 0, frame.Width, frame.Height), New Rectangle(x, y, frame.Width, frame.Height), GraphicsUnit.Pixel)
+                If reverse Then
+                    frame.RotateFlip(RotateFlipType.RotateNoneFlipX)
+                End If
+                frames.Add(frame.Clone())
+                g.Clear(Color.Empty)
+                If n >= nframes And nframes <> 0 Then
+                    Exit For
+                End If
+            Next
+            If n >= nframes And nframes <> 0 Then
+                Exit For
+            End If
+        Next
+    End Sub
+
+    Function handle() As Image
+        If timer.ElapsedMilliseconds >= interval Then
+            timer.Restart()
+            Return getFrame(loopanim)
+        End If
+        Return frames(index)
+    End Function
+
+    Function getFrame(Optional loopanim As Boolean = True) As Image
+        Dim frame As Image
+        frame = frames(index)
+        index += 1
+        If index >= frames.ToArray.Length Then
+            If loopanim Then
+                index = 0
+            Else
+                index -= 1
+                playing = False
+            End If
+        End If
+        Return frame
+    End Function
+
+End Class
+
+Public Class Animations
+
+    Private items As New Dictionary(Of String, Animation)
+
+    Public active As String
+
+    Sub addAnim(key As String, ByRef animation As Animation)
+        items.Add(key, animation)
+        If IsNothing(active) Then
+            active = key
+        End If
+    End Sub
+
+    Sub setActive(key As String, Optional autoplay As Boolean = True)
+        If active <> key Then
+            getAnim(active).stopAnim()
+            active = key
+            If autoplay Then
+                getAnim(active).playAnim()
+            End If
+        End If
+    End Sub
+
+    Function handle() As Image
+        Return getAnim(active).handle()
+    End Function
+
+    Function getAnim(key As String) As Animation
+        Return items(key)
+    End Function
+
+End Class
+
 '======================================== GENERIC SPRITE CLASS ========================================
 Public Class Sprite
     Public image As Image
@@ -354,6 +479,8 @@ Public Class Sprite
     Public speed As Double = 0
     Public frames As Integer = 0
     Public color As System.Drawing.Color = color.White
+
+    Public animations As New Animations
 
     Public Function clone() As Sprite
         Return DirectCast(Me.MemberwiseClone(), Sprite)
