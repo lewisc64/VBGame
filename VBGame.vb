@@ -74,7 +74,7 @@ Public Class VBGame
     '''     
     ''' End While
     ''' </summary>
-    ''' <remarks>Version 0.8</remarks>
+    ''' <remarks>Version 0.9</remarks>
 
     Private WithEvents form As Form
     Public displaybuffer As System.Drawing.BufferedGraphics
@@ -262,10 +262,11 @@ Public Class VBGame
         Return bitmap
     End Function
 
-    Sub saveImage(path As String)
-        Dim bitmap As Bitmap
-        bitmap = getImageFromDisplay()
-        bitmap.Save(path, System.Drawing.Imaging.ImageFormat.Bmp)
+    Sub saveImage(image As Bitmap, path As String, Optional format As System.Drawing.Imaging.ImageFormat = Nothing)
+        If IsNothing(format) Then
+            format = System.Drawing.Imaging.ImageFormat.Png
+        End If
+        image.Save(path, format)
     End Sub
 
     'drawing -----------------------------------------------------------------------
