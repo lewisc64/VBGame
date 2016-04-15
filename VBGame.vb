@@ -1,5 +1,6 @@
 
 Imports System.Windows.Forms
+Imports System.IO
 
 
 Public Class MouseEvent
@@ -55,24 +56,6 @@ End Class
 Public Class VBGame
 
     ''' <summary>
-    ''' Game loop needs to be a thread.
-    ''' To use, the display must be set the the form's load event.
-    ''' 
-    ''' Usage ----------------------------------------------------
-    ''' 
-    ''' Dim object As New VBGame
-    ''' object.setdisplay(form, "[width]x[height]")
-    ''' 
-    ''' Loop structure -------------------------------------------
-    ''' 
-    ''' While run
-    ''' 
-    '''     [do something]    
-    ''' 
-    '''     vbgame.update() 'Renders the buffer to the screen
-    '''     vbgame.clocktick([fps]) 'Waits so that a certain amount of frames pass in a second
-    '''     
-    ''' End While
     ''' </summary>
     ''' <remarks>Version 0.9</remarks>
 
@@ -82,15 +65,15 @@ Public Class VBGame
     Public width As Integer
     Public height As Integer
 
-    Public white = Color.FromArgb(255, 255, 255)
-    Public black = Color.FromArgb(0, 0, 0)
-    Public grey = Color.FromArgb(128, 128, 128)
-    Public red = Color.FromArgb(255, 0, 0)
-    Public green = Color.FromArgb(0, 255, 0)
-    Public blue = Color.FromArgb(0, 0, 255)
-    Public cyan = Color.FromArgb(0, 255, 255)
-    Public yellow = Color.FromArgb(255, 255, 0)
-    Public magenta = Color.FromArgb(255, 0, 255)
+    Public Shared white = Color.FromArgb(255, 255, 255)
+    Public Shared black = Color.FromArgb(0, 0, 0)
+    Public Shared grey = Color.FromArgb(128, 128, 128)
+    Public Shared red = Color.FromArgb(255, 0, 0)
+    Public Shared green = Color.FromArgb(0, 255, 0)
+    Public Shared blue = Color.FromArgb(0, 0, 255)
+    Public Shared cyan = Color.FromArgb(0, 255, 255)
+    Public Shared yellow = Color.FromArgb(255, 255, 0)
+    Public Shared magenta = Color.FromArgb(255, 0, 255)
 
     Private fps As Integer = 0
 
@@ -101,9 +84,51 @@ Public Class VBGame
 
     Private mouseevents As New List(Of MouseEvent)
     Public mouse As MouseEventArgs
-    Public mouse_left As MouseButtons = MouseButtons.Left
-    Public mouse_right As MouseButtons = MouseButtons.Right
-    Public mouse_middle As MouseButtons = MouseButtons.Middle
+    Public Shared mouse_left As MouseButtons = MouseButtons.Left
+    Public Shared mouse_right As MouseButtons = MouseButtons.Right
+    Public Shared mouse_middle As MouseButtons = MouseButtons.Middle
+
+    Public Shared Sub saveImage(image As Bitmap, path As String, Optional format As System.Drawing.Imaging.ImageFormat = Nothing)
+        If IsNothing(format) Then
+            format = System.Drawing.Imaging.ImageFormat.Png
+        End If
+        image.Save(path, format)
+    End Sub
+
+    Public Shared Function loadImage(path As String) As Image
+        Return Image.FromFile(path)
+    End Function
+
+    Public Shared Function collideRect(rect1 As Rectangle, rect2 As Rectangle) As Boolean
+        Return rect1.IntersectsWith(rect2)
+    End Function
+
+    Public Shared Function sliceSpriteSheet(sheet As Image, rowcolumn As Size, Optional nimages As Integer = 0, Optional reverse As Boolean = False) As List(Of Image)
+        Dim list As New List(Of Image)
+        Dim n As Integer = 0
+        Dim image As Image = New Bitmap(CInt(sheet.Width / rowcolumn.Width), CInt(sheet.Height / rowcolumn.Height))
+        Dim g As Graphics = Graphics.FromImage(image)
+        g.SmoothingMode = Drawing2D.SmoothingMode.None
+        g.InterpolationMode = Drawing2D.InterpolationMode.NearestNeighbor
+        For y As Integer = 0 To sheet.Height - image.Height Step image.Height
+            For x As Integer = 0 To sheet.Width - image.Width Step image.Width
+                n += 1
+                g.DrawImage(sheet, New Rectangle(0, 0, image.Width, image.Height), New Rectangle(x, y, image.Width, image.Height), GraphicsUnit.Pixel)
+                If reverse Then
+                    image.RotateFlip(RotateFlipType.RotateNoneFlipX)
+                End If
+                list.Add(image.Clone())
+                g.Clear(Color.Empty)
+                If n >= nimages And nimages <> 0 Then
+                    Exit For
+                End If
+            Next
+            If n >= nimages And nimages <> 0 Then
+                Exit For
+            End If
+        Next
+        Return list
+    End Function
 
     Sub setDisplay(ByRef f As Form, resolution As Size, Optional title As String = "", Optional sharppixels As Boolean = False, Optional fullscreen As Boolean = False)
         form = f
@@ -239,20 +264,12 @@ Public Class VBGame
         End Try
     End Sub
 
-    Function collideRect(rect1 As Rectangle, rect2 As Rectangle) As Boolean
-        Return rect1.IntersectsWith(rect2)
-    End Function
-
     Function getRect() As Rectangle
         Return New Rectangle(0, 0, width, height)
     End Function
 
     Function getCenter() As Point
         Return New Point(width / 2, height / 2)
-    End Function
-
-    Function getImage(path As String) As Image
-        Return Image.FromFile(path)
     End Function
 
     Function getImageFromDisplay() As Image
@@ -262,12 +279,7 @@ Public Class VBGame
         Return bitmap
     End Function
 
-    Sub saveImage(image As Bitmap, path As String, Optional format As System.Drawing.Imaging.ImageFormat = Nothing)
-        If IsNothing(format) Then
-            format = System.Drawing.Imaging.ImageFormat.Png
-        End If
-        image.Save(path, format)
-    End Sub
+
 
     'drawing -----------------------------------------------------------------------
     Sub fill(color As System.Drawing.Color)
@@ -344,6 +356,68 @@ Public Class VBGame
         End If
     End Sub
 
+    Sub loadImage()
+        Throw New NotImplementedException
+    End Sub
+
+End Class
+
+Public Class sound
+
+    Public Declare Function mciSendString Lib "winmm.dll" Alias "mciSendStringA" (ByVal lpstrCommand As String, ByVal lpstrReturnString As String, ByVal uReturnLength As Integer, ByVal hwndCallback As Integer) As Integer
+
+    Public name As String
+    Private vol As Integer = 1000
+
+    Public Sub New(filename As String)
+        name = filename
+        load()
+    End Sub
+
+    Property volume
+        Set(value)
+            vol = value
+            If vol < 0 Then
+                vol = 0
+            End If
+            If vol > 1000 Then
+                vol = 1000
+            End If
+            setVolume(vol)
+        End Set
+        Get
+            Return vol
+        End Get
+    End Property
+
+    Private Sub load()
+        mciSendString("Open " & getPath() & " alias " & name, CStr(0), 0, 0)
+    End Sub
+
+    Sub play(Optional repeat As Boolean = False)
+        If repeat Then
+            mciSendString("play " & name & " repeat", CStr(0), 0, 0)
+        Else
+            mciSendString("play " & name, CStr(0), 0, 0)
+        End If
+    End Sub
+
+    Sub halt()
+        mciSendString("stop " & name, CStr(0), 0, 0)
+    End Sub
+
+    Sub pause()
+        mciSendString("pause " & name, CStr(0), 0, 0)
+    End Sub
+
+    Private Sub setVolume(volume As Integer)
+        mciSendString("setaudio " & name & " volume to " & volume, CStr(0), 0, 0)
+    End Sub
+
+    Private Function getPath() As String
+        Return Directory.GetCurrentDirectory() & "\" & name
+    End Function
+
 End Class
 
 Public Class Animation
@@ -383,35 +457,14 @@ Public Class Animation
     End Sub
 
     Sub getFramesFromStrip(strip As Image, rowcolumn As Size, Optional nframes As Integer = 0, Optional reverse As Boolean = False)
-        Dim n As Integer = 0
-        Dim frame As Image = New Bitmap(CInt(strip.Width / rowcolumn.Width), CInt(strip.Height / rowcolumn.Height))
-        Dim g As Graphics = Graphics.FromImage(frame)
-        g.SmoothingMode = Drawing2D.SmoothingMode.None
-        g.InterpolationMode = Drawing2D.InterpolationMode.NearestNeighbor
-        For y As Integer = 0 To strip.Height - frame.Height Step frame.Height
-            For x As Integer = 0 To strip.Width - frame.Width Step frame.Width
-                n += 1
-                g.DrawImage(strip, New Rectangle(0, 0, frame.Width, frame.Height), New Rectangle(x, y, frame.Width, frame.Height), GraphicsUnit.Pixel)
-                If reverse Then
-                    frame.RotateFlip(RotateFlipType.RotateNoneFlipX)
-                End If
-                frames.Add(frame.Clone())
-                g.Clear(Color.Empty)
-                If n >= nframes And nframes <> 0 Then
-                    Exit For
-                End If
-            Next
-            If n >= nframes And nframes <> 0 Then
-                Exit For
-            End If
-        Next
+        frames = VBGame.sliceSpriteSheet(strip, rowcolumn, nframes, reverse)
     End Sub
 
     Function handle() As Image
-        If timer.ElapsedMilliseconds >= interval Then
+        While timer.ElapsedMilliseconds >= interval
             timer.Restart()
             Return getFrame(loopanim)
-        End If
+        End While
         Return frames(index)
     End Function
 
@@ -463,9 +516,20 @@ Public Class Animations
         Return items(key)
     End Function
 
+    Sub playActive()
+        getActive().playAnim()
+    End Sub
+
+    Sub stopActive()
+        getActive().stopAnim()
+    End Sub
+
+    Function getActive() As Animation
+        Return items(active)
+    End Function
+
 End Class
 
-'======================================== GENERIC SPRITE CLASS ========================================
 Public Class Sprite
     Public image As Image
     Public width As Double = 0
@@ -645,7 +709,6 @@ Public Class Sprite
 
 End Class
 
-'======================================== GENERIC BUTTON CLASS ========================================
 Class Button
 
     Inherits Sprite
