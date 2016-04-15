@@ -1,7 +1,5 @@
-
 Imports System.Windows.Forms
 Imports System.IO
-
 
 Public Class MouseEvent
 
@@ -55,10 +53,6 @@ End Class
 
 Public Class VBGame
 
-    ''' <summary>
-    ''' </summary>
-    ''' <remarks>Version 0.9</remarks>
-
     Private WithEvents form As Form
     Public displaybuffer As System.Drawing.BufferedGraphics
     Private displaycontext As System.Drawing.BufferedGraphicsContext
@@ -88,6 +82,13 @@ Public Class VBGame
     Public Shared mouse_right As MouseButtons = MouseButtons.Right
     Public Shared mouse_middle As MouseButtons = MouseButtons.Middle
 
+    ''' <summary>
+    ''' Saves image to a file
+    ''' </summary>
+    ''' <param name="image"></param>
+    ''' <param name="path"></param>
+    ''' <param name="format"></param>
+    ''' <remarks></remarks>
     Public Shared Sub saveImage(image As Bitmap, path As String, Optional format As System.Drawing.Imaging.ImageFormat = Nothing)
         If IsNothing(format) Then
             format = System.Drawing.Imaging.ImageFormat.Png
@@ -103,6 +104,15 @@ Public Class VBGame
         Return rect1.IntersectsWith(rect2)
     End Function
 
+    ''' <summary>
+    ''' Seperates images from a larger image. Operates from left to right, then moving down.
+    ''' </summary>
+    ''' <param name="sheet">Image of spritesheet.</param>
+    ''' <param name="rowcolumn">Amount of images in the width and height.</param>
+    ''' <param name="nimages">How many images from the sheet should be sliced.</param>
+    ''' <param name="reverse">To reverse the individual images after slicing.</param>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Public Shared Function sliceSpriteSheet(sheet As Image, rowcolumn As Size, Optional nimages As Integer = 0, Optional reverse As Boolean = False) As List(Of Image)
         Dim list As New List(Of Image)
         Dim n As Integer = 0
@@ -130,6 +140,15 @@ Public Class VBGame
         Return list
     End Function
 
+    ''' <summary>
+    ''' Configures VBGame for operation. Must be called before starting game loop.
+    ''' </summary>
+    ''' <param name="f">Form that will be drawn on.</param>
+    ''' <param name="resolution">Width and height of display area, in pixels.</param>
+    ''' <param name="title">String that will be displayed on title bar.</param>
+    ''' <param name="sharppixels">Enabling this will turn off pixel smoothing. Good for pixel art.</param>
+    ''' <param name="fullscreen"></param>
+    ''' <remarks></remarks>
     Sub setDisplay(ByRef f As Form, resolution As Size, Optional title As String = "", Optional sharppixels As Boolean = False, Optional fullscreen As Boolean = False)
         form = f
 
@@ -210,6 +229,8 @@ Public Class VBGame
         Return tlist
     End Function
 
+    'Form event hooks.
+
     Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseWheel
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.scroll))
         mouse = e
@@ -243,6 +264,11 @@ Public Class VBGame
         keyupevents.Add(e)
     End Sub
 
+    ''' <summary>
+    ''' Waits so that the specified fps can be achieved.
+    ''' </summary>
+    ''' <param name="fps"></param>
+    ''' <remarks></remarks>
     Sub clockTick(fps As Double)
         Dim tfps As Double
         tfps = 1000 / fps
@@ -252,10 +278,19 @@ Public Class VBGame
         fpstimer.Start()
     End Sub
 
+    ''' <summary>
+    ''' Gets the time in milliseconds since the last clockTick()
+    ''' </summary>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Function getTime()
         Return fpstimer.ElapsedMilliseconds
     End Function
 
+    ''' <summary>
+    ''' Renders the display buffer to the form.
+    ''' </summary>
+    ''' <remarks></remarks>
     Sub update()
         Try
             displaybuffer.Render()
@@ -264,6 +299,11 @@ Public Class VBGame
         End Try
     End Sub
 
+    ''' <summary>
+    ''' Gets the display area as a rectangle.
+    ''' </summary>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Function getRect() As Rectangle
         Return New Rectangle(0, 0, width, height)
     End Function
@@ -279,9 +319,7 @@ Public Class VBGame
         Return bitmap
     End Function
 
-
-
-    'drawing -----------------------------------------------------------------------
+    'Drawing
     Sub fill(color As System.Drawing.Color)
         drawRect(New Rectangle(0, 0, form.Width, form.Height), color)
     End Sub
@@ -290,6 +328,12 @@ Public Class VBGame
         drawRect(New Rectangle(point.X, point.Y, 1, 1), color)
     End Sub
 
+    ''' <summary>
+    ''' Draws an image to the screen.
+    ''' </summary>
+    ''' <param name="image"></param>
+    ''' <param name="rect"></param>
+    ''' <remarks></remarks>
     Sub blit(image As Image, rect As Rectangle)
         If Not IsNothing(image) Then
             displaybuffer.Graphics.DrawImage(image, rect)
@@ -355,11 +399,6 @@ Public Class VBGame
             pen.Dispose()
         End If
     End Sub
-
-    Sub loadImage()
-        Throw New NotImplementedException
-    End Sub
-
 End Class
 
 Public Class sound
@@ -374,6 +413,12 @@ Public Class sound
         load()
     End Sub
 
+    ''' <summary>
+    ''' Changing this will update the volume.
+    ''' </summary>
+    ''' <value></value>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Property volume
         Set(value)
             vol = value
@@ -394,6 +439,10 @@ Public Class sound
         mciSendString("Open " & getPath() & " alias " & name, CStr(0), 0, 0)
     End Sub
 
+    ''' <summary>
+    ''' </summary>
+    ''' <param name="repeat">If enabled, the sound will loop. Note: this does not work with .wav files.</param>
+    ''' <remarks></remarks>
     Sub play(Optional repeat As Boolean = False)
         If repeat Then
             mciSendString("play " & name & " repeat", CStr(0), 0, 0)
@@ -401,6 +450,7 @@ Public Class sound
             mciSendString("play " & name, CStr(0), 0, 0)
         End If
     End Sub
+
 
     Sub halt()
         mciSendString("stop " & name, CStr(0), 0, 0)
@@ -448,7 +498,16 @@ Public Class Animation
         timer.Stop()
     End Sub
 
-    Sub New(strip As Image, rowcolumn As Size, timing As Integer, Optional nframes As Integer = 0, Optional reverse As Boolean = False, Optional animloop As Boolean = True)
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="strip">Image of spritesheet.</param>
+    ''' <param name="rowcolumn">Amount of images in the width and height.</param>
+    ''' <param name="nframes">How many images from the sheet should be sliced.</param>
+    ''' <param name="reverse">To reverse the individual images after slicing.</param>
+    ''' <param name="animloop">If enabled, the animation will loop.</param>
+    ''' <remarks></remarks>
+    Sub New(ByRef strip As Image, rowcolumn As Size, timing As Integer, Optional nframes As Integer = 0, Optional reverse As Boolean = False, Optional animloop As Boolean = True)
         loopanim = animloop
         index = 0
         interval = timing
@@ -456,10 +515,19 @@ Public Class Animation
         playing = False
     End Sub
 
+    ''' <summary>
+    ''' See VBGame.sliceSpriteSheet()
+    ''' </summary>
+    ''' <remarks></remarks>
     Sub getFramesFromStrip(strip As Image, rowcolumn As Size, Optional nframes As Integer = 0, Optional reverse As Boolean = False)
         frames = VBGame.sliceSpriteSheet(strip, rowcolumn, nframes, reverse)
     End Sub
 
+    ''' <summary>
+    ''' Used in conjection with VBGame.blit(), this will pick the image to return based on a timer.
+    ''' </summary>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Function handle() As Image
         While timer.ElapsedMilliseconds >= interval
             timer.Restart()
@@ -468,6 +536,12 @@ Public Class Animation
         Return frames(index)
     End Function
 
+    ''' <summary>
+    ''' Gets the next frame.
+    ''' </summary>
+    ''' <param name="loopanim"></param>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Function getFrame(Optional loopanim As Boolean = True) As Image
         Dim frame As Image
         frame = frames(index)
@@ -491,6 +565,10 @@ Public Class Animations
 
     Public active As String
 
+    Public Function clone() As Animations
+        Return DirectCast(Me.MemberwiseClone(), Animations)
+    End Function
+
     Sub addAnim(key As String, ByRef animation As Animation)
         items.Add(key, animation)
         If IsNothing(active) Then
@@ -508,6 +586,11 @@ Public Class Animations
         End If
     End Sub
 
+    ''' <summary>
+    ''' Returns a frame from the active animation.
+    ''' </summary>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Function handle() As Image
         Return getAnim(active).handle()
     End Function
@@ -576,6 +659,10 @@ Public Class Sprite
         Return New PointF(xt, yt)
     End Function
 
+    ''' <summary>
+    ''' Ensures the sprite's angle is between 0 and 360 degrees.
+    ''' </summary>
+    ''' <remarks></remarks>
     Private Sub normalizeAngle()
         While angle > 360
             angle -= 360
@@ -585,6 +672,14 @@ Public Class Sprite
         End While
     End Sub
 
+    ''' <summary>
+    ''' Keeps the sprite in a rectangle.
+    ''' </summary>
+    ''' <param name="bounds">Rectangle container.</param>
+    ''' <param name="trig">Whether or not the sprite is using angled movement.</param>
+    ''' <param name="bounce">If enabled, the sprite will change it's movement to give the appearence of bouncing.</param>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Function keepInBounds(bounds As Rectangle, Optional trig As Boolean = False, Optional bounce As Boolean = False)
         Dim move As PointF
         Dim wd As Boolean = False
@@ -687,26 +782,6 @@ Public Class Sprite
     Function getRadius() As Double
         Return (getRect().Width / 2 + getRect().Width / 2) / 2
     End Function
-
-    Sub basicControls(key As String, KeyDown As Boolean)
-        Dim posmod As Integer = 0
-        If KeyDown Then
-            posmod = speed
-        End If
-        If key = "W" Then
-            nyc = posmod
-        End If
-        If key = "S" Then
-            pyc = posmod
-        End If
-        If key = "A" Then
-            nxc = posmod
-        End If
-        If key = "D" Then
-            pxc = posmod
-        End If
-    End Sub
-
 End Class
 
 Class Button
@@ -730,6 +805,15 @@ Class Button
     Public textcolor As System.Drawing.Color
     Public hovertextcolor As System.Drawing.Color
 
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="vbgamet">Display to draw onto.</param>
+    ''' <param name="textt">Text to display on the button.</param>
+    ''' <param name="rect">Rectangle of the button</param>
+    ''' <param name="fontnamet"></param>
+    ''' <param name="fontsizet"></param>
+    ''' <remarks></remarks>
     Public Sub New(ByRef vbgamet As VBGame, textt As String, Optional rect As Rectangle = Nothing, Optional fontnamet As String = "Arial", Optional fontsizet As Integer = 0)
         vbgame = vbgamet
         If Not IsNothing(rect) Then
@@ -744,6 +828,10 @@ Class Button
         End If
     End Sub
 
+    ''' <summary>
+    ''' Calculates the font size based on the current rectangle.
+    ''' </summary>
+    ''' <remarks></remarks>
     Public Sub calculateFontSize()
         For f As Integer = 1 To 75
             If vbgame.displaybuffer.Graphics.MeasureString(text, New Font(fontname, f)).Width < width Then
@@ -762,6 +850,10 @@ Class Button
         hovertextcolor = mouseon
     End Sub
 
+    ''' <summary>
+    ''' Draws the button. Keep out of event loops.
+    ''' </summary>
+    ''' <remarks></remarks>
     Public Sub draw()
         If IsNothing(image) Then
             If hover Then
@@ -789,6 +881,12 @@ Class Button
 
     End Sub
 
+    ''' <summary>
+    ''' Put inside the VBGame.getMouseEvents() loop. Will return the MouseEvent of a successful click.
+    ''' </summary>
+    ''' <param name="e">MouseEvent from loop.</param>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Public Function handle(e As MouseEvent)
         If vbgame.collideRect(New Rectangle(e.location.X, e.location.Y, 1, 1), getRect()) Then
             hover = True
