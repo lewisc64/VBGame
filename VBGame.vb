@@ -51,13 +51,147 @@ Public Class MouseEvent
 
 End Class
 
-Public Class VBGame
+Public Class DrawBase
 
-    Private WithEvents form As Form
-    Public displaybuffer As System.Drawing.BufferedGraphics
-    Private displaycontext As System.Drawing.BufferedGraphicsContext
+    Public displaybuffer As BufferedGraphics
+    Public displaycontext As System.Drawing.BufferedGraphicsContext
+
+    Public x = 0
+    Public y = 0
     Public width As Integer
     Public height As Integer
+
+    ''' <summary>
+    ''' Renders the display buffer to the form.
+    ''' </summary>
+    ''' <remarks></remarks>
+    Sub update()
+        Try
+            displaybuffer.Render()
+        Catch ex As System.ArgumentException
+            End
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Gets the display area as a rectangle.
+    ''' </summary>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
+    Function getRect() As Rectangle
+        Return New Rectangle(x, y, width, height)
+    End Function
+
+    Function shiftRect(rect As Rectangle) As Rectangle
+        Return New Rectangle(rect.X + x, rect.Y + y, rect.Width, rect.Height)
+    End Function
+
+    Function shiftPoint(point As Point) As Point
+        Return New Point(point.X + x, point.Y + y)
+    End Function
+
+    Function getCenter() As Point
+        Return New Point(width / 2, height / 2)
+    End Function
+
+    Sub fill(color As System.Drawing.Color)
+        drawRect(New Rectangle(0, 0, width, height), color) 'Rect shift not needed
+    End Sub
+
+    Sub setPixel(point As Point, color As System.Drawing.Color)
+        drawRect(New Rectangle(point.X + x, point.Y + y, 1, 1), color)
+    End Sub
+
+    ''' <summary>
+    ''' Draws an image to the screen.
+    ''' </summary>
+    ''' <param name="image"></param>
+    ''' <param name="rect"></param>
+    ''' <remarks></remarks>
+    Sub blit(image As Image, rect As Rectangle)
+        If Not IsNothing(image) Then
+            displaybuffer.Graphics.DrawImage(image, shiftRect(rect))
+        End If
+    End Sub
+
+    Sub drawText(point As Point, s As String, color As System.Drawing.Color, Optional fontsize As Single = 16, Optional fontname As String = "Arial")
+        Dim brush As New System.Drawing.SolidBrush(color)
+        Dim font As New System.Drawing.Font(fontname, fontsize)
+        Dim format As New System.Drawing.StringFormat
+        displaybuffer.Graphics.DrawString(s, font, brush, point.X + x, point.Y + y, format)
+        brush.Dispose()
+    End Sub
+
+    Sub drawCenteredText(rect As Rectangle, s As String, color As System.Drawing.Color, Optional fontsize As Single = 16, Optional fontname As String = "Arial")
+        Dim font As New System.Drawing.Font(fontname, fontsize)
+        TextRenderer.DrawText(displaybuffer.Graphics, s, font, shiftRect(rect), color, color.Empty, TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter)
+    End Sub
+
+    'line drawing ------------------------------------------------------------------
+    Sub drawLines(ByVal points() As Point, color As System.Drawing.Color, Optional width As Integer = 1)
+
+        If x <> 0 And y <> 0 Then
+            For Each Point As Point In points
+                Point = shiftPoint(Point)
+            Next
+        End If
+
+        If points.Length >= 2 Then
+            Dim pen As New Pen(color, width)
+            pen.Alignment = Drawing2D.PenAlignment.Center
+            displaybuffer.Graphics.DrawLines(pen, points)
+            pen.Dispose()
+        End If
+    End Sub
+
+    Sub drawLine(point1 As Point, point2 As Point, color As System.Drawing.Color, Optional width As Integer = 1)
+        Dim pen As New Pen(color, width)
+        pen.Alignment = Drawing2D.PenAlignment.Center
+        displaybuffer.Graphics.DrawLine(pen, shiftPoint(point1), shiftPoint(point2))
+        pen.Dispose()
+    End Sub
+
+    'shape drawing ------------------------------------------------------------------
+    Sub drawRect(ByVal rect As Rectangle, color As System.Drawing.Color, Optional filled As Boolean = True)
+        rect = shiftRect(rect)
+        If filled Then
+            Dim brush As New System.Drawing.SolidBrush(color)
+            displaybuffer.Graphics.FillRectangle(brush, rect)
+            brush.Dispose()
+        Else
+            Dim pen As New Pen(color)
+            displaybuffer.Graphics.DrawRectangle(pen, rect)
+            pen.Dispose()
+        End If
+    End Sub
+
+    Sub drawCircle(center As Point, radius As Integer, color As System.Drawing.Color, Optional filled As Boolean = True)
+        Dim rect As New Rectangle(center.X - radius, center.Y - radius, radius * 2, radius * 2)
+        drawEllipse(rect, color, filled) 'Rect shift not needed, ellipse takes care of that.
+    End Sub
+
+    Sub drawEllipse(rect As Rectangle, color As System.Drawing.Color, Optional filled As Boolean = True)
+        rect = shiftRect(rect)
+        If filled Then
+            Dim brush As New System.Drawing.SolidBrush(color)
+            displaybuffer.Graphics.FillEllipse(brush, New Rectangle(rect.X + x, rect.Y + y, rect.Width, rect.Height))
+            brush.Dispose()
+        Else
+            Dim pen As New Pen(color)
+            displaybuffer.Graphics.DrawEllipse(pen, rect)
+            pen.Dispose()
+        End If
+    End Sub
+End Class
+
+''' <summary>
+''' Game loop must be in a thread.
+''' </summary>
+''' <remarks></remarks>
+Public Class VBGame
+    Inherits DrawBase
+
+    Private WithEvents form As Form
 
     Public Shared white = Color.FromArgb(255, 255, 255)
     Public Shared black = Color.FromArgb(0, 0, 0)
@@ -287,31 +421,6 @@ Public Class VBGame
         Return fpstimer.ElapsedMilliseconds
     End Function
 
-    ''' <summary>
-    ''' Renders the display buffer to the form.
-    ''' </summary>
-    ''' <remarks></remarks>
-    Sub update()
-        Try
-            displaybuffer.Render()
-        Catch ex As System.ArgumentException
-            End
-        End Try
-    End Sub
-
-    ''' <summary>
-    ''' Gets the display area as a rectangle.
-    ''' </summary>
-    ''' <returns></returns>
-    ''' <remarks></remarks>
-    Function getRect() As Rectangle
-        Return New Rectangle(0, 0, width, height)
-    End Function
-
-    Function getCenter() As Point
-        Return New Point(width / 2, height / 2)
-    End Function
-
     Function getImageFromDisplay() As Image
         Dim bitmap As Bitmap = New Bitmap(width, height, displaybuffer.Graphics)
         Dim g As Graphics = Graphics.FromImage(bitmap)
@@ -320,88 +429,68 @@ Public Class VBGame
     End Function
 
     'Drawing
-    Sub fill(color As System.Drawing.Color)
-        drawRect(New Rectangle(0, 0, form.Width, form.Height), color)
-    End Sub
-
-    Sub setPixel(point As Point, color As System.Drawing.Color)
-        drawRect(New Rectangle(point.X, point.Y, 1, 1), color)
-    End Sub
-
-    ''' <summary>
-    ''' Draws an image to the screen.
-    ''' </summary>
-    ''' <param name="image"></param>
-    ''' <param name="rect"></param>
-    ''' <remarks></remarks>
-    Sub blit(image As Image, rect As Rectangle)
-        If Not IsNothing(image) Then
-            displaybuffer.Graphics.DrawImage(image, rect)
-        End If
-    End Sub
-
-    Sub drawText(point As Point, s As String, color As System.Drawing.Color, Optional fontsize As Single = 16, Optional fontname As String = "Arial")
-        Dim brush As New System.Drawing.SolidBrush(color)
-        Dim font As New System.Drawing.Font(fontname, fontsize)
-        Dim format As New System.Drawing.StringFormat
-        displaybuffer.Graphics.DrawString(s, font, brush, point.X, point.Y, format)
-        brush.Dispose()
-    End Sub
-
-    Sub drawCenteredText(rect As Rectangle, s As String, color As System.Drawing.Color, Optional fontsize As Single = 16, Optional fontname As String = "Arial")
-        Dim font As New System.Drawing.Font(fontname, fontsize)
-        TextRenderer.DrawText(displaybuffer.Graphics, s, font, rect, color, color.Empty, TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter)
-    End Sub
-
-    'line drawing ------------------------------------------------------------------
-    Sub drawLines(points() As Point, color As System.Drawing.Color, Optional width As Integer = 1)
-        If points.Length >= 2 Then
-            Dim pen As New Pen(color, width)
-            pen.Alignment = Drawing2D.PenAlignment.Center
-            displaybuffer.Graphics.DrawLines(pen, points)
-            pen.Dispose()
-        End If
-    End Sub
-
-    Sub drawLine(point1 As Point, point2 As Point, color As System.Drawing.Color, Optional width As Integer = 1)
-        Dim pen As New Pen(color, width)
-        pen.Alignment = Drawing2D.PenAlignment.Center
-        displaybuffer.Graphics.DrawLine(pen, point1, point2)
-        pen.Dispose()
-    End Sub
-
-    'shape drawing ------------------------------------------------------------------
-    Sub drawRect(rect As Rectangle, color As System.Drawing.Color, Optional filled As Boolean = True)
-        If filled Then
-            Dim brush As New System.Drawing.SolidBrush(color)
-            displaybuffer.Graphics.FillRectangle(brush, rect)
-            brush.Dispose()
-        Else
-            Dim pen As New Pen(color)
-            displaybuffer.Graphics.DrawRectangle(pen, rect)
-            pen.Dispose()
-        End If
-    End Sub
-
-    Sub drawCircle(center As Point, radius As Integer, color As System.Drawing.Color, Optional filled As Boolean = True)
-        Dim rect As New Rectangle(center.X - radius, center.Y - radius, radius * 2, radius * 2)
-        drawEllipse(rect, color, filled)
-    End Sub
-
-    Sub drawEllipse(rect As Rectangle, color As System.Drawing.Color, Optional filled As Boolean = True)
-        If filled Then
-            Dim brush As New System.Drawing.SolidBrush(color)
-            displaybuffer.Graphics.FillEllipse(brush, rect)
-            brush.Dispose()
-        Else
-            Dim pen As New Pen(color)
-            displaybuffer.Graphics.DrawEllipse(pen, rect)
-            pen.Dispose()
-        End If
-    End Sub
 End Class
 
-Public Class sound
+''' <summary>
+''' Gets a portion of the display given to do drawing operations on.
+''' Anything drawn outside of the bounds of the surface will not be drawn on the parent display.
+''' Surfaces are static.
+''' </summary>
+''' <remarks></remarks>
+Public Class Surface
+    Inherits DrawBase
+
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="rect"></param>
+    ''' <param name="parentdisplay">Display to draw on.</param>
+    ''' <remarks></remarks>
+    Public Sub New(rect As Rectangle, parentdisplay As VBGame)
+
+        x = rect.X
+        y = rect.Y
+        width = rect.Width
+        height = rect.Height
+
+        displaycontext = BufferedGraphicsManager.Current
+        displaybuffer = displaycontext.Allocate(parentdisplay.displaybuffer.Graphics, getRect())
+    End Sub
+
+End Class
+
+Public Class BitmapSurface
+    Inherits DrawBase
+
+    Private displaygraphics As Graphics
+    Private display As Bitmap
+
+    Public Sub New(size As Size, Optional format As Imaging.PixelFormat = Nothing)
+
+        If format = Imaging.PixelFormat.Undefined Then
+            format = Imaging.PixelFormat.Format24bppRgb
+        End If
+
+        width = size.Width
+        height = size.Height
+
+        display = New Bitmap(width, height, format)
+        displaygraphics = Graphics.FromImage(display)
+
+        displaycontext = BufferedGraphicsManager.Current
+        displaybuffer = displaycontext.Allocate(displaygraphics, getRect())
+    End Sub
+
+    Public Function getImage(Optional autoupdate = True)
+        If autoupdate Then
+            update()
+        End If
+        Return display
+    End Function
+
+End Class
+
+Public Class Sound
 
     Public Declare Function mciSendString Lib "winmm.dll" Alias "mciSendStringA" (ByVal lpstrCommand As String, ByVal lpstrReturnString As String, ByVal uReturnLength As Integer, ByVal hwndCallback As Integer) As Integer
 
@@ -435,8 +524,12 @@ Public Class sound
         End Get
     End Property
 
-    Private Sub load()
+    Sub load()
         mciSendString("Open " & getPath() & " alias " & name, CStr(0), 0, 0)
+    End Sub
+
+    Sub close()
+        mciSendString("close " & name, CStr(0), 0, 0)
     End Sub
 
     ''' <summary>
@@ -450,7 +543,6 @@ Public Class sound
             mciSendString("play " & name, CStr(0), 0, 0)
         End If
     End Sub
-
 
     Sub halt()
         mciSendString("stop " & name, CStr(0), 0, 0)
@@ -507,7 +599,7 @@ Public Class Animation
     ''' <param name="reverse">To reverse the individual images after slicing.</param>
     ''' <param name="animloop">If enabled, the animation will loop.</param>
     ''' <remarks></remarks>
-    Sub New(ByRef strip As Image, rowcolumn As Size, timing As Integer, Optional nframes As Integer = 0, Optional reverse As Boolean = False, Optional animloop As Boolean = True)
+    Sub New(strip As Image, rowcolumn As Size, timing As Integer, Optional nframes As Integer = 0, Optional reverse As Boolean = False, Optional animloop As Boolean = True)
         loopanim = animloop
         index = 0
         interval = timing
@@ -569,7 +661,7 @@ Public Class Animations
         Return DirectCast(Me.MemberwiseClone(), Animations)
     End Function
 
-    Sub addAnim(key As String, ByRef animation As Animation)
+    Sub addAnim(key As String, animation As Animation)
         items.Add(key, animation)
         If IsNothing(active) Then
             active = key
@@ -605,6 +697,10 @@ Public Class Animations
 
     Sub stopActive()
         getActive().stopAnim()
+    End Sub
+
+    Sub pauseActive()
+        getActive().pauseAnim()
     End Sub
 
     Function getActive() As Animation
