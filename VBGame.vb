@@ -499,7 +499,6 @@ Public Class Sound
 
     Public Sub New(filename As String)
         name = filename
-        load()
     End Sub
 
     ''' <summary>
@@ -528,24 +527,22 @@ Public Class Sound
         mciSendString("Open " & getPath() & " alias " & name, CStr(0), 0, 0)
     End Sub
 
-    Sub close()
-        mciSendString("close " & name, CStr(0), 0, 0)
-    End Sub
-
     ''' <summary>
     ''' </summary>
     ''' <param name="repeat">If enabled, the sound will loop. Note: this does not work with .wav files.</param>
     ''' <remarks></remarks>
     Sub play(Optional repeat As Boolean = False)
         If repeat Then
+            load()
             mciSendString("play " & name & " repeat", CStr(0), 0, 0)
         Else
+            load()
             mciSendString("play " & name, CStr(0), 0, 0)
         End If
     End Sub
 
     Sub halt()
-        mciSendString("stop " & name, CStr(0), 0, 0)
+        mciSendString("close " & name, CStr(0), 0, 0)
     End Sub
 
     Sub pause()
@@ -573,6 +570,10 @@ Public Class Animation
     Public loopanim As Boolean = True
 
     Public timer As New Stopwatch
+
+    Public Function clone() As Animation
+        Return DirectCast(Me.MemberwiseClone(), Animation)
+    End Function
 
     Sub playAnim()
         playing = True
