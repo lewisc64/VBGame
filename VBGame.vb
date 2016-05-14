@@ -1,4 +1,4 @@
-Imports System.Windows.Forms
+﻿Imports System.Windows.Forms
 Imports System.IO
 
 Public Class MouseEvent
@@ -365,36 +365,36 @@ Public Class VBGame
 
     'Form event hooks.
 
-    Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseWheel
+    Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseWheel
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.scroll))
         mouse = e
     End Sub
 
-    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseMove
+    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseMove
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.move))
         mouse = e
     End Sub
 
-    Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDown
+    Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseDown
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.down))
         mouse = e
     End Sub
 
-    Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseClick
+    Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseClick
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.up))
         mouse = e
     End Sub
 
-    Private Sub form_MouseDoubleClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDoubleClick
+    Private Sub form_MouseDoubleClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseDoubleClick
         mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.up))
         mouse = e
     End Sub
 
-    Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyDown
+    Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyDown
         keydownevents.Add(e)
     End Sub
 
-    Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyUp
+    Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyUp
         keyupevents.Add(e)
     End Sub
 
@@ -890,7 +890,7 @@ Class Button
     ''' </summary>
     ''' <remarks></remarks>
 
-    Public vbgame As VBGame
+    Public display As VBGame
     Public hover As Boolean = False
     Public hovercolor As Color
     Public hoverimage As Image
@@ -911,8 +911,8 @@ Class Button
     ''' <param name="fontnamet"></param>
     ''' <param name="fontsizet"></param>
     ''' <remarks></remarks>
-    Public Sub New(ByRef vbgamet As VBGame, textt As String, Optional rect As Rectangle = Nothing, Optional fontnamet As String = "Arial", Optional fontsizet As Integer = 0)
-        vbgame = vbgamet
+    Public Sub New(ByRef vbgame As VBGame, textt As String, Optional rect As Rectangle = Nothing, Optional fontnamet As String = "Arial", Optional fontsizet As Integer = 0)
+        display = vbgame
         If Not IsNothing(rect) Then
             setRect(rect)
         End If
@@ -931,7 +931,7 @@ Class Button
     ''' <remarks></remarks>
     Public Sub calculateFontSize()
         For f As Integer = 1 To 75
-            If vbgame.displaybuffer.Graphics.MeasureString(text, New Font(fontname, f)).Width < width Then
+            If display.displaybuffer.Graphics.MeasureString(text, New Font(fontname, f)).Width < width Then
                 fontsize = f
             End If
         Next
@@ -954,26 +954,26 @@ Class Button
     Public Sub draw()
         If IsNothing(image) Then
             If hover Then
-                vbgame.drawRect(getRect(), hovercolor)
+                display.drawRect(getRect(), hovercolor)
             Else
-                vbgame.drawRect(getRect(), color)
+                display.drawRect(getRect(), color)
             End If
         Else
             If hover Then
-                vbgame.blit(hoverimage, getRect())
+                display.blit(hoverimage, getRect())
             Else
-                vbgame.blit(image, getRect())
+                display.blit(image, getRect())
             End If
         End If
 
         If hover Then
             If IsNothing(hovertext) Then
-                vbgame.drawCenteredText(getRect(), text, hovertextcolor, fontsize, fontname)
+                display.drawCenteredText(getRect(), text, hovertextcolor, fontsize, fontname)
             Else
-                vbgame.drawCenteredText(getRect(), hovertext, hovertextcolor, fontsize, fontname)
+                display.drawCenteredText(getRect(), hovertext, hovertextcolor, fontsize, fontname)
             End If
         Else
-            vbgame.drawCenteredText(getRect(), text, textcolor, fontsize, fontname)
+            display.drawCenteredText(getRect(), text, textcolor, fontsize, fontname)
         End If
 
     End Sub
@@ -985,7 +985,7 @@ Class Button
     ''' <returns></returns>
     ''' <remarks></remarks>
     Public Function handle(e As MouseEvent)
-        If vbgame.collideRect(New Rectangle(e.location.X, e.location.Y, 1, 1), getRect()) Then
+        If display.collideRect(New Rectangle(e.location.X, e.location.Y, 1, 1), getRect()) Then
             hover = True
             If e.action = MouseEvent.actions.up Then
                 Return e.button
