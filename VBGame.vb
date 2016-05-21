@@ -1,4 +1,7 @@
-﻿Imports System.Windows.Forms
+﻿Option Explicit On
+Option Strict On
+
+Imports System.Windows.Forms
 Imports System.IO
 
 Public Class MouseEvent
@@ -19,9 +22,9 @@ Public Class MouseEvent
         scroll
     End Enum
 
-    Public action
+    Public action As Byte
     Public location As Point
-    Public button
+    Public button As Byte
 
     Public Sub New(locationt As Point, actiont As Byte, buttont As Byte)
         action = actiont
@@ -29,21 +32,21 @@ Public Class MouseEvent
         button = buttont
     End Sub
 
-    Public Shared Function InterpretFormEvent(e As MouseEventArgs, action As Byte)
+    Public Shared Function InterpretFormEvent(e As MouseEventArgs, action As Byte) As MouseEvent
         Dim button As Byte
         If action = actions.down Or action = actions.up Then
             If e.Button = MouseButtons.Left Then
-                button = buttons.left
+                button = CByte(buttons.left)
             ElseIf e.Button = MouseButtons.Right Then
-                button = buttons.right
+                button = CByte(buttons.right)
             ElseIf e.Button = MouseButtons.Middle Then
-                button = buttons.middle
+                button = CByte(buttons.middle)
             End If
         ElseIf action = actions.scroll Then
             If e.Delta > 0 Then
-                button = buttons.scrollUp
+                button = CByte(buttons.scrollUp)
             ElseIf e.Delta < 0 Then
-                button = buttons.scrollDown
+                button = CByte(buttons.scrollDown)
             End If
         End If
         Return New MouseEvent(e.Location, action, button)
@@ -56,8 +59,8 @@ Public Class DrawBase
     Public displaybuffer As BufferedGraphics
     Public displaycontext As System.Drawing.BufferedGraphicsContext
 
-    Public x = 0
-    Public y = 0
+    Public x As Integer = 0
+    Public y As Integer = 0
     Public width As Integer
     Public height As Integer
 
@@ -79,7 +82,7 @@ Public Class DrawBase
     ''' <returns></returns>
     ''' <remarks></remarks>
     Function getRect() As Rectangle
-        Return New Rectangle(x, y, width, height)
+        Return New Rectangle(CInt(x), CInt(y), width, height)
     End Function
 
     Function shiftRect(rect As Rectangle) As Rectangle
@@ -91,7 +94,7 @@ Public Class DrawBase
     End Function
 
     Function getCenter() As Point
-        Return New Point(width / 2, height / 2)
+        Return New Point(CInt(width / 2), CInt(height / 2))
     End Function
 
     Sub fill(color As System.Drawing.Color)
@@ -114,16 +117,26 @@ Public Class DrawBase
         End If
     End Sub
 
-    Sub drawText(point As Point, s As String, color As System.Drawing.Color, Optional fontsize As Single = 16, Optional fontname As String = "Arial")
+    Sub blitUnscaled(image As Image, point As Point)
+        If Not IsNothing(image) Then
+            displaybuffer.Graphics.DrawImageUnscaled(image, shiftPoint(point))
+        End If
+    End Sub
+
+    Sub drawText(point As Point, s As String, color As System.Drawing.Color, Optional font As Font = Nothing)
         Dim brush As New System.Drawing.SolidBrush(color)
-        Dim font As New System.Drawing.Font(fontname, fontsize)
+        If IsNothing(font) Then
+            font = New Font("Arial", 16)
+        End If
         Dim format As New System.Drawing.StringFormat
         displaybuffer.Graphics.DrawString(s, font, brush, point.X + x, point.Y + y, format)
         brush.Dispose()
     End Sub
 
-    Sub drawCenteredText(rect As Rectangle, s As String, color As System.Drawing.Color, Optional fontsize As Single = 16, Optional fontname As String = "Arial")
-        Dim font As New System.Drawing.Font(fontname, fontsize)
+    Sub drawCenteredText(rect As Rectangle, s As String, color As System.Drawing.Color, Optional font As Font = Nothing)
+        If IsNothing(font) Then
+            font = New Font("Arial", 16)
+        End If
         TextRenderer.DrawText(displaybuffer.Graphics, s, font, shiftRect(rect), color, color.Empty, TextFormatFlags.VerticalCenter Or TextFormatFlags.HorizontalCenter)
     End Sub
 
@@ -193,15 +206,15 @@ Public Class VBGame
 
     Private WithEvents form As Form
 
-    Public Shared white = Color.FromArgb(255, 255, 255)
-    Public Shared black = Color.FromArgb(0, 0, 0)
-    Public Shared grey = Color.FromArgb(128, 128, 128)
-    Public Shared red = Color.FromArgb(255, 0, 0)
-    Public Shared green = Color.FromArgb(0, 255, 0)
-    Public Shared blue = Color.FromArgb(0, 0, 255)
-    Public Shared cyan = Color.FromArgb(0, 255, 255)
-    Public Shared yellow = Color.FromArgb(255, 255, 0)
-    Public Shared magenta = Color.FromArgb(255, 0, 255)
+    Public Shared white As Color = Color.FromArgb(255, 255, 255)
+    Public Shared black As Color = Color.FromArgb(0, 0, 0)
+    Public Shared grey As Color = Color.FromArgb(128, 128, 128)
+    Public Shared red As Color = Color.FromArgb(255, 0, 0)
+    Public Shared green As Color = Color.FromArgb(0, 255, 0)
+    Public Shared blue As Color = Color.FromArgb(0, 0, 255)
+    Public Shared cyan As Color = Color.FromArgb(0, 255, 255)
+    Public Shared yellow As Color = Color.FromArgb(255, 255, 0)
+    Public Shared magenta As Color = Color.FromArgb(255, 0, 255)
 
     Private fps As Integer = 0
 
@@ -234,8 +247,8 @@ Public Class VBGame
         Return Image.FromFile(path)
     End Function
 
-    Public Shared Function collideRect(rect1 As Rectangle, rect2 As Rectangle) As Boolean
-        Return rect1.IntersectsWith(rect2)
+    Public Shared Function collideRect(r1 As Rectangle, r2 As Rectangle) As Boolean
+        Return (r1.Left <= r2.Right AndAlso r2.Left <= r1.Right AndAlso r1.Top <= r2.Bottom AndAlso r2.Top <= r1.Bottom)
     End Function
 
     ''' <summary>
@@ -261,7 +274,7 @@ Public Class VBGame
                 If reverse Then
                     image.RotateFlip(RotateFlipType.RotateNoneFlipX)
                 End If
-                list.Add(image.Clone())
+                list.Add(CType(image.Clone(), Drawing.Image))
                 g.Clear(Color.Empty)
                 If n >= nimages And nimages <> 0 Then
                     Exit For
@@ -330,7 +343,7 @@ Public Class VBGame
         mouseevents.Add(e)
     End Sub
 
-    Function getKeyUpEvents()
+    Function getKeyUpEvents() As List(Of KeyEventArgs)
         Dim tlist As List(Of KeyEventArgs)
         Try
             tlist = keyupevents.ToList()
@@ -341,7 +354,7 @@ Public Class VBGame
         Return tlist
     End Function
 
-    Function getKeyDownEvents()
+    Function getKeyDownEvents() As List(Of KeyEventArgs)
         Dim tlist As List(Of KeyEventArgs)
         Try
             tlist = keydownevents.ToList()
@@ -352,7 +365,7 @@ Public Class VBGame
         Return tlist
     End Function
 
-    Function getMouseEvents()
+    Function getMouseEvents() As List(Of MouseEvent)
         Dim tlist As List(Of MouseEvent)
         Try
             tlist = mouseevents.ToList()
@@ -365,36 +378,36 @@ Public Class VBGame
 
     'Form event hooks.
 
-    Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseWheel
-        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.scroll))
+    Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseWheel
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.scroll)))
         mouse = e
     End Sub
 
-    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseMove
-        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.move))
+    Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseMove
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.move)))
         mouse = e
     End Sub
 
-    Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseDown
-        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.down))
+    Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDown
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.down)))
         mouse = e
     End Sub
 
-    Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseClick
-        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.up))
+    Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseClick
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.up)))
         mouse = e
     End Sub
 
-    Private Sub form_MouseDoubleClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseDoubleClick
-        mouseevents.Add(MouseEvent.InterpretFormEvent(e, MouseEvent.actions.up))
+    Private Sub form_MouseDoubleClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDoubleClick
+        mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.up)))
         mouse = e
     End Sub
 
-    Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyDown
+    Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyDown
         keydownevents.Add(e)
     End Sub
 
-    Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyUp
+    Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyUp
         keyupevents.Add(e)
     End Sub
 
@@ -417,14 +430,14 @@ Public Class VBGame
     ''' </summary>
     ''' <returns></returns>
     ''' <remarks></remarks>
-    Function getTime()
+    Function getTime() As Long
         Return fpstimer.ElapsedMilliseconds
     End Function
 
     Function getImageFromDisplay() As Image
         Dim bitmap As Bitmap = New Bitmap(width, height, displaybuffer.Graphics)
         Dim g As Graphics = Graphics.FromImage(bitmap)
-        g.CopyFromScreen(New Point(form.Location.X + (form.Width - form.DisplayRectangle().Width) / 2, form.Location.Y + (form.Height - form.DisplayRectangle().Height) * (15 / 19)), New Point(0, 0), New Size(width, height))
+        g.CopyFromScreen(New Point(CInt(form.Location.X + (form.Width - form.DisplayRectangle().Width) / 2), CInt(form.Location.Y + (form.Height - form.DisplayRectangle().Height) * (15 / 19))), New Point(0, 0), New Size(width, height))
         Return bitmap
     End Function
 
@@ -463,7 +476,7 @@ Public Class BitmapSurface
     Inherits DrawBase
 
     Private displaygraphics As Graphics
-    Private display As Bitmap
+    Public bitmap As Bitmap
 
     Public Sub New(size As Size, Optional format As Imaging.PixelFormat = Nothing)
 
@@ -474,18 +487,18 @@ Public Class BitmapSurface
         width = size.Width
         height = size.Height
 
-        display = New Bitmap(width, height, format)
-        displaygraphics = Graphics.FromImage(display)
+        bitmap = New Bitmap(width, height, format)
+        displaygraphics = Graphics.FromImage(bitmap)
 
         displaycontext = BufferedGraphicsManager.Current
         displaybuffer = displaycontext.Allocate(displaygraphics, getRect())
     End Sub
 
-    Public Function getImage(Optional autoupdate = True)
+    Public Function getImage(Optional autoupdate As Boolean = True) As Image
         If autoupdate Then
             update()
         End If
-        Return display
+        Return bitmap
     End Function
 
 End Class
@@ -499,6 +512,7 @@ Public Class Sound
 
     Public Sub New(filename As String)
         name = filename
+        load()
     End Sub
 
     ''' <summary>
@@ -507,9 +521,9 @@ Public Class Sound
     ''' <value></value>
     ''' <returns></returns>
     ''' <remarks></remarks>
-    Property volume
-        Set(value)
-            vol = value
+    Property volume As Integer
+        Set(value As Integer)
+            vol = CInt(value)
             If vol < 0 Then
                 vol = 0
             End If
@@ -533,10 +547,8 @@ Public Class Sound
     ''' <remarks></remarks>
     Sub play(Optional repeat As Boolean = False)
         If repeat Then
-            load()
             mciSendString("play " & name & " repeat", CStr(0), 0, 0)
         Else
-            load()
             mciSendString("play " & name, CStr(0), 0, 0)
         End If
     End Sub
@@ -753,7 +765,7 @@ Public Class Sprite
             xt = x + pxc - nxc
             yt = y + pyc - nyc
         End If
-        Return New PointF(xt, yt)
+        Return New PointF(CSng(xt), CSng(yt))
     End Function
 
     ''' <summary>
@@ -777,79 +789,130 @@ Public Class Sprite
     ''' <param name="bounce">If enabled, the sprite will change it's movement to give the appearence of bouncing.</param>
     ''' <returns></returns>
     ''' <remarks></remarks>
-    Function keepInBounds(bounds As Rectangle, Optional trig As Boolean = False, Optional bounce As Boolean = False)
+    Function keepInBounds(bounds As Rectangle, Optional trig As Boolean = False, Optional bounce As Boolean = False) As Boolean
         Dim move As PointF
         Dim wd As Boolean = False
-        If Not trig Then
-            move = calcMove()
-            If move.X + width > bounds.X + bounds.Width Then
-                wd = True
-                x = bounds.X + bounds.Width - width
-                pxc = 0
-                If bounce Then
-                    nxc = speed
-                End If
 
-            ElseIf move.X < bounds.X Then
-                wd = True
-                x = bounds.X
-                If bounce Then
-                    pxc = speed
-                End If
-                nxc = 0
+        move = calcMove(trig)
+        If move.X + width > bounds.X + bounds.Width Then
+            wd = True
+            x = bounds.X + bounds.Width - width
+            If bounce Then
+                bounceX(trig)
             End If
 
-            If move.Y + height > bounds.Y + bounds.Height Then
-                wd = True
-                y = bounds.Y + bounds.Height - height
-                pyc = 0
-                If bounce Then
-                    nyc = speed
-                End If
-
-            ElseIf move.Y < bounds.Y Then
-                wd = True
-                y = bounds.Y
-                If bounce Then
-                    pyc = speed
-                End If
-                nyc = 0
+        ElseIf move.X < bounds.X Then
+            wd = True
+            x = bounds.X
+            If bounce Then
+                bounceX(trig)
             End If
-
-        Else
-            move = calcMove(True)
-            If move.X + width > bounds.X + bounds.Width Then
-                wd = True
-                x = bounds.X + bounds.Width - width
-                If bounce Then
-                    angle = -angle + 180
-                End If
-
-            ElseIf move.X < bounds.X Then
-                wd = True
-                x = bounds.X
-                If bounce Then
-                    angle = -angle + 180
-                End If
-
-            End If
-            If move.Y + height > bounds.Y + bounds.Height Then
-                wd = True
-                y = bounds.Y + bounds.Height - height
-                If bounce Then
-                    angle = -angle
-                End If
-
-            ElseIf move.Y < bounds.Y Then
-                wd = True
-                y = bounds.Y
-                If bounce Then
-                    angle = -angle
-                End If
-            End If
-            normalizeAngle()
         End If
+
+        If move.Y + height > bounds.Y + bounds.Height Then
+            wd = True
+            y = bounds.Y + bounds.Height - height
+            If bounce Then
+                bounceY(trig)
+            End If
+
+        ElseIf move.Y < bounds.Y Then
+            wd = True
+            y = bounds.Y
+            If bounce Then
+                bounceY(trig)
+            End If
+        End If
+
         Return wd
+    End Function
+
+    Private Sub bounceY(trig As Boolean)
+        If trig Then
+            angle = -angle
+        Else
+            Dim tmp As Double
+            tmp = pyc
+            pyc = nyc
+            nyc = tmp
+        End If
+    End Sub
+
+    Private Sub bounceX(trig As Boolean)
+        If trig Then
+            angle = -angle + 180
+        Else
+            Dim tmp As Double
+            tmp = pxc
+            pxc = nxc
+            nxc = tmp
+        End If
+    End Sub
+
+    Private Function verticalCollisions(intersectRect As Rectangle, hitRect As Rectangle, trig As Boolean, bounce As Boolean) As Boolean
+
+        If intersectRect.Y = hitRect.Y Then
+            y = hitRect.Y - height
+            If bounce Then
+                bounceY(trig)
+            End If
+            Return True
+
+        ElseIf intersectRect.Y + intersectRect.Height = hitRect.Y + hitRect.Height Then
+            y = hitRect.Bottom
+            If bounce Then
+                bounceY(trig)
+            End If
+            Return True
+        End If
+
+        Return False
+    End Function
+
+    Private Function horizontalCollisions(intersectRect As Rectangle, hitRect As Rectangle, trig As Boolean, bounce As Boolean) As Boolean
+
+        If intersectRect.X = hitRect.X Then
+            x = hitRect.X - width
+            If bounce Then
+                bounceX(trig)
+            End If
+            Return True
+
+        ElseIf intersectRect.X + intersectRect.Width = hitRect.X + hitRect.Width Then
+            x = hitRect.Right
+            If bounce Then
+                bounceX(trig)
+            End If
+            Return True
+        End If
+
+        Return False
+    End Function
+
+    Public Function keepOutsideBounds(bounds As Rectangle, Optional trig As Boolean = False, Optional bounce As Boolean = False) As Boolean
+        If VBGame.collideRect(getRect(), bounds) Then
+            Dim intersectRect As Rectangle = getRect()
+
+            intersectRect.Intersect(bounds)
+
+            If intersectRect.Width > intersectRect.Height Then
+                If Not verticalCollisions(intersectRect, bounds, trig, bounce) Then
+                    Return horizontalCollisions(intersectRect, bounds, trig, bounce)
+                Else
+                    Return True
+                End If
+
+            Else
+                If Not horizontalCollisions(intersectRect, bounds, trig, bounce) Then
+                    Return verticalCollisions(intersectRect, bounds, trig, bounce)
+                Else
+                    Return True
+                End If
+            End If
+        Else
+            Return False
+        End If
+
     End Function
 
     Sub setRect(rect As Rectangle)
@@ -865,15 +928,15 @@ Public Class Sprite
     End Sub
 
     Function getRect() As Rectangle
-        Return New Rectangle(x, y, width, height)
+        Return New Rectangle(CInt(x), CInt(y), CInt(width), CInt(height))
     End Function
 
     Function getXY() As Point
-        Return New Point(x, y)
+        Return New Point(CInt(x), CInt(y))
     End Function
 
     Function getCenter() As Point
-        Return New Point(x + width / 2, y + height / 2)
+        Return New Point(CInt(x + width / 2), CInt(y + height / 2))
     End Function
 
     Function getRadius() As Double
@@ -905,7 +968,7 @@ Class Button
     ''' <summary>
     ''' 
     ''' </summary>
-    ''' <param name="vbgamet">Display to draw onto.</param>
+    ''' <param name="vbgame">Display to draw onto.</param>
     ''' <param name="textt">Text to display on the button.</param>
     ''' <param name="rect">Rectangle of the button</param>
     ''' <param name="fontnamet"></param>
@@ -968,12 +1031,12 @@ Class Button
 
         If hover Then
             If IsNothing(hovertext) Then
-                display.drawCenteredText(getRect(), text, hovertextcolor, fontsize, fontname)
+                display.drawCenteredText(getRect(), text, hovertextcolor, New Font(fontname, fontsize))
             Else
-                display.drawCenteredText(getRect(), hovertext, hovertextcolor, fontsize, fontname)
+                display.drawCenteredText(getRect(), hovertext, hovertextcolor, New Font(fontname, fontsize))
             End If
         Else
-            display.drawCenteredText(getRect(), text, textcolor, fontsize, fontname)
+            display.drawCenteredText(getRect(), text, textcolor, New Font(fontname, fontsize))
         End If
 
     End Sub
@@ -984,8 +1047,8 @@ Class Button
     ''' <param name="e">MouseEvent from loop.</param>
     ''' <returns></returns>
     ''' <remarks></remarks>
-    Public Function handle(e As MouseEvent)
-        If display.collideRect(New Rectangle(e.location.X, e.location.Y, 1, 1), getRect()) Then
+    Public Function handle(e As MouseEvent) As Byte
+        If VBGame.collideRect(New Rectangle(e.location.X, e.location.Y, 1, 1), getRect()) Then
             hover = True
             If e.action = MouseEvent.actions.up Then
                 Return e.button
@@ -993,7 +1056,7 @@ Class Button
         Else
             hover = False
         End If
-        Return MouseEvent.buttons.none
+        Return CByte(MouseEvent.buttons.none)
     End Function
 
 End Class
