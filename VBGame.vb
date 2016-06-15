@@ -1,4 +1,4 @@
-﻿Option Explicit On
+Option Explicit On
 Option Strict On
 
 Imports System.Windows.Forms
@@ -790,18 +790,16 @@ Public Class Sprite
     ''' <returns></returns>
     ''' <remarks></remarks>
     Function keepInBounds(bounds As Rectangle, Optional trig As Boolean = False, Optional bounce As Boolean = False) As Boolean
-        Dim move As PointF
         Dim wd As Boolean = False
 
-        move = calcMove(trig)
-        If move.X + width > bounds.X + bounds.Width Then
+        If x + width > bounds.X + bounds.Width Then
             wd = True
             x = bounds.X + bounds.Width - width
             If bounce Then
                 bounceX(trig)
             End If
 
-        ElseIf move.X < bounds.X Then
+        ElseIf x < bounds.X Then
             wd = True
             x = bounds.X
             If bounce Then
@@ -809,14 +807,14 @@ Public Class Sprite
             End If
         End If
 
-        If move.Y + height > bounds.Y + bounds.Height Then
+        If y + height > bounds.Y + bounds.Height Then
             wd = True
             y = bounds.Y + bounds.Height - height
             If bounce Then
                 bounceY(trig)
             End If
 
-        ElseIf move.Y < bounds.Y Then
+        ElseIf y < bounds.Y Then
             wd = True
             y = bounds.Y
             If bounce Then
