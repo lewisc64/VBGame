@@ -3,6 +3,7 @@ Option Strict On
 
 Imports System.Windows.Forms
 Imports System.IO
+Imports System.Threading
 
 Public Class MouseEvent
 
@@ -59,10 +60,36 @@ Public Class DrawBase
     Public displaybuffer As BufferedGraphics
     Public displaycontext As System.Drawing.BufferedGraphicsContext
 
-    Public x As Integer = 0
-    Public y As Integer = 0
+    Public parentgraphics As Graphics
+
+    Public x_shift As Integer = 0
+    Public Property x As Integer
+        Set(value As Integer)
+            x_shift = value
+            allocate()
+        End Set
+        Get
+            Return x_shift
+        End Get
+    End Property
+
+    Public y_shift As Integer = 0
+    Public Property y As Integer
+        Set(value As Integer)
+            y_shift = value
+            allocate()
+        End Set
+        Get
+            Return y_shift
+        End Get
+    End Property
+
     Public width As Integer
     Public height As Integer
+
+    Sub allocate()
+        displaybuffer = displaycontext.Allocate(parentgraphics, getRect(True))
+    End Sub
 
     ''' <summary>
     ''' Renders the display buffer to the form.
@@ -81,8 +108,12 @@ Public Class DrawBase
     ''' </summary>
     ''' <returns></returns>
     ''' <remarks></remarks>
-    Function getRect() As Rectangle
-        Return New Rectangle(CInt(x), CInt(y), width, height)
+    Function getRect(Optional shifted As Boolean = False) As Rectangle
+        If shifted Then
+            Return New Rectangle(CInt(x_shift), CInt(y_shift), width, height)
+        Else
+            Return New Rectangle(0, 0, width, height)
+        End If
     End Function
 
     Function shiftRect(rect As Rectangle) As Rectangle
@@ -98,7 +129,7 @@ Public Class DrawBase
     End Function
 
     Sub fill(color As System.Drawing.Color)
-        drawRect(New Rectangle(0, 0, width, height), color) 'Rect shift not needed
+        drawRect(New Rectangle(x, y, width, height), color)
     End Sub
 
     Sub setPixel(point As Point, color As System.Drawing.Color)
@@ -234,7 +265,7 @@ Public Class VBGame
     ''' </summary>
     ''' <param name="image"></param>
     ''' <param name="path"></param>
-    ''' <param name="format"></param>
+    ''' <param name="format">Default is png format.</param>
     ''' <remarks></remarks>
     Public Shared Sub saveImage(image As Bitmap, path As String, Optional format As System.Drawing.Imaging.ImageFormat = Nothing)
         If IsNothing(format) Then
@@ -314,7 +345,9 @@ Public Class VBGame
         End If
 
         displaycontext = BufferedGraphicsManager.Current
-        displaybuffer = displaycontext.Allocate(form.CreateGraphics, form.DisplayRectangle)
+        parentgraphics = form.CreateGraphics
+        allocate()
+
         If sharppixels Then
             displaybuffer.Graphics.SmoothingMode = Drawing2D.SmoothingMode.None
             displaybuffer.Graphics.InterpolationMode = Drawing2D.InterpolationMode.NearestNeighbor
@@ -419,8 +452,9 @@ Public Class VBGame
     Sub clockTick(fps As Double)
         Dim tfps As Double
         tfps = 1000 / fps
-        While fpstimer.ElapsedMilliseconds < tfps
-        End While
+        If fpstimer.ElapsedMilliseconds < tfps Then
+            Thread.Sleep(CInt(tfps - fpstimer.ElapsedMilliseconds))
+        End If
         fpstimer.Reset()
         fpstimer.Start()
     End Sub
@@ -461,13 +495,16 @@ Public Class Surface
     ''' <remarks></remarks>
     Public Sub New(rect As Rectangle, parentdisplay As VBGame)
 
-        x = rect.X
-        y = rect.Y
+        x_shift = rect.X
+        y_shift = rect.Y
         width = rect.Width
         height = rect.Height
 
         displaycontext = BufferedGraphicsManager.Current
-        displaybuffer = displaycontext.Allocate(parentdisplay.displaybuffer.Graphics, getRect())
+
+        parentgraphics = parentdisplay.displaybuffer.Graphics
+
+        allocate()
     End Sub
 
 End Class
@@ -475,7 +512,6 @@ End Class
 Public Class BitmapSurface
     Inherits DrawBase
 
-    Private displaygraphics As Graphics
     Public bitmap As Bitmap
 
     Public Sub New(size As Size, Optional format As Imaging.PixelFormat = Nothing)
@@ -488,10 +524,12 @@ Public Class BitmapSurface
         height = size.Height
 
         bitmap = New Bitmap(width, height, format)
-        displaygraphics = Graphics.FromImage(bitmap)
+        bitmap.MakeTransparent()
+
+        parentgraphics = Graphics.FromImage(bitmap)
 
         displaycontext = BufferedGraphicsManager.Current
-        displaybuffer = displaycontext.Allocate(displaygraphics, getRect())
+        allocate()
     End Sub
 
     Public Function getImage(Optional autoupdate As Boolean = True) As Image
@@ -1056,5 +1094,146 @@ Class Button
         End If
         Return CByte(MouseEvent.buttons.none)
     End Function
+
+End Class
+
+Class TextInput
+
+    Public display As BitmapSurface
+
+    Public width As Double = 0
+    Public height As Double = 0
+    Public x As Double = 0
+    Public y As Double = 0
+
+    Public text As String
+    Public focus As Boolean = True
+
+    Public fontName As String
+    Public fontSize As Integer
+
+    Public fontColor As Color
+    Public color As Color
+
+    Public allowNewLine As Boolean
+
+    Private blinkTimer As New Stopwatch
+
+    Sub setRect(rect As Rectangle)
+        x = rect.X
+        y = rect.Y
+        width = rect.Width
+        height = rect.Height
+    End Sub
+
+    Sub setXY(point As Point)
+        x = point.X
+        y = point.Y
+    End Sub
+
+    Function getRect() As Rectangle
+        Return New Rectangle(CInt(x), CInt(y), CInt(width), CInt(height))
+    End Function
+
+    Function getXY() As Point
+        Return New Point(CInt(x), CInt(y))
+    End Function
+
+    Function getCenter() As Point
+        Return New Point(CInt(x + width / 2), CInt(y + height / 2))
+    End Function
+
+    Public Sub New(rect As Rectangle, Optional fontnamet As String = "Arial", Optional fontsizet As Integer = 0)
+
+        setRect(rect)
+
+
+        display = New BitmapSurface(New Size(rect.Width, rect.Height))
+
+        fontName = fontnamet
+        If fontsizet = 0 Then
+            calculateFontSize()
+        Else
+            fontSize = fontsizet
+        End If
+
+        fontColor = VBGame.black
+        color = color.FromArgb(0, 0, 0, 0)
+
+        allowNewLine = False
+
+        text = ""
+
+        blinkTimer.Start()
+
+    End Sub
+
+    Private Sub calculateFontSize()
+        For f As Integer = 1 To 75
+            If display.displaybuffer.Graphics.MeasureString(text, New Font(fontName, f)).Width < width Then
+                fontSize = f
+            End If
+        Next
+    End Sub
+
+    Public Function handle(e As KeyEventArgs) As Boolean
+
+        If e.KeyCode = Keys.Back AndAlso text.Length > 0 Then
+            text = text.Substring(0, text.Length - 1)
+
+        ElseIf e.KeyCode >= Keys.A AndAlso e.KeyCode <= Keys.Z Then
+            If e.Shift Then
+                addText(e.KeyCode.ToString())
+            Else
+                addText(e.KeyCode.ToString().ToLower())
+            End If
+
+        ElseIf e.KeyCode >= Keys.D0 AndAlso e.KeyCode <= Keys.D9 Then
+            addText(e.KeyCode.ToString().Substring(1, 1))
+
+        ElseIf e.KeyCode = Keys.Space Then
+            addText(" ")
+        ElseIf e.KeyCode = Keys.OemPeriod Then
+            addText(".")
+        ElseIf e.KeyCode = Keys.Oemcomma Then
+            addText(",")
+        ElseIf e.KeyCode = Keys.Enter AndAlso allowNewLine Then
+            addText(vbCrLf)
+        ElseIf e.KeyCode = Keys.Enter Then
+            Return True
+        End If
+
+        Return False
+    End Function
+
+    Private Sub addText(s As String)
+        If checkLength(s) Then
+            text = text & s
+        End If
+    End Sub
+
+    Private Function checkLength(s As String) As Boolean
+        'Dim size As SizeF = display.displaybuffer.Graphics.MeasureString(text & s, New Font(fontName, fontSize))
+        'If size.Width > width OrElse size.Height > height Then
+        '    Return False
+        'End If
+        Return True
+    End Function
+
+    Public Sub draw(mdisplay As VBGame)
+        display.drawRect(New Rectangle(0, 0, CInt(width), CInt(height)), color)
+
+        If blinkTimer.ElapsedMilliseconds < 500 Then
+            display.drawText(New Point(0, 0), text, fontColor)
+        ElseIf blinkTimer.ElapsedMilliseconds >= 500 Then
+            display.drawText(New Point(0, 0), text & "|", fontColor)
+            If blinkTimer.ElapsedMilliseconds >= 1000 Then
+                blinkTimer.Restart()
+            End If
+        End If
+
+        mdisplay.blit(display.getImage(), getRect())
+
+    End Sub
 
 End Class
