@@ -129,7 +129,7 @@ Public Class DrawBase
     End Function
 
     Sub fill(color As System.Drawing.Color)
-        drawRect(New Rectangle(x, y, width, height), color)
+        drawRect(getRect(), color)
     End Sub
 
     Sub setPixel(point As Point, color As System.Drawing.Color)
@@ -218,7 +218,7 @@ Public Class DrawBase
         rect = shiftRect(rect)
         If filled Then
             Dim brush As New System.Drawing.SolidBrush(color)
-            displaybuffer.Graphics.FillEllipse(brush, New Rectangle(rect.X + x, rect.Y + y, rect.Width, rect.Height))
+            displaybuffer.Graphics.FillEllipse(brush, rect)
             brush.Dispose()
         Else
             Dim pen As New Pen(color)
