@@ -279,7 +279,7 @@ Public Class VBGame
     End Function
 
     Public Shared Function collideRect(r1 As Rectangle, r2 As Rectangle) As Boolean
-        Return (r1.Left <= r2.Right AndAlso r2.Left <= r1.Right AndAlso r1.Top <= r2.Bottom AndAlso r2.Top <= r1.Bottom)
+        Return (r1.Left < r2.Right AndAlso r2.Left < r1.Right AndAlso r1.Top < r2.Bottom AndAlso r2.Top < r1.Bottom)
     End Function
 
     ''' <summary>
@@ -764,12 +764,62 @@ Public Class Sprite
     Public image As Image
     Public width As Double = 0
     Public height As Double = 0
+
     Public x As Double = 0
     Public y As Double = 0
     Public pxc As Double = 0
     Public nxc As Double = 0
     Public pyc As Double = 0
     Public nyc As Double = 0
+
+    ''' <summary>
+    ''' How much the x value of the sprite should move when move() is called.
+    ''' </summary>
+    ''' <value></value>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
+    Public Property xc As Double
+        Set(value As Double)
+            If value > 0 Then
+                nxc = 0
+                pxc = value
+            ElseIf value < 0 Then
+                pxc = 0
+                nxc = Math.Abs(value)
+            Else
+                pxc = 0
+                nxc = 0
+            End If
+        End Set
+        Get
+            Return CDbl(pxc - nxc)
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' How much the y value of the sprite should move when move() is called.
+    ''' </summary>
+    ''' <value></value>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
+    Public Property yc As Double
+        Set(value As Double)
+            If value > 0 Then
+                nyc = 0
+                pyc = value
+            ElseIf value < 0 Then
+                pyc = 0
+                nyc = Math.Abs(value)
+            Else
+                pyc = 0
+                nyc = 0
+            End If
+        End Set
+        Get
+            Return CDbl(pyc - nyc)
+        End Get
+    End Property
+
     Public angle As Double = 0
     Public speed As Double = 0
     Public frames As Integer = 0
@@ -818,6 +868,14 @@ Public Class Sprite
             angle += 360
         End While
     End Sub
+
+    Public Enum Sides
+        none
+        top
+        bottom
+        left
+        right
+    End Enum
 
     ''' <summary>
     ''' Keeps the sprite in a rectangle.
@@ -885,68 +943,71 @@ Public Class Sprite
         End If
     End Sub
 
-    Private Function verticalCollisions(intersectRect As Rectangle, hitRect As Rectangle, trig As Boolean, bounce As Boolean) As Boolean
+    Private Function verticalCollisions(intersectRect As Rectangle, hitRect As Rectangle, trig As Boolean, bounce As Boolean) As Byte
 
         If intersectRect.Y = hitRect.Y Then
             y = hitRect.Y - height
             If bounce Then
                 bounceY(trig)
             End If
-            Return True
+            Return CByte(Sides.top)
 
         ElseIf intersectRect.Y + intersectRect.Height = hitRect.Y + hitRect.Height Then
             y = hitRect.Bottom
             If bounce Then
                 bounceY(trig)
             End If
-            Return True
+            Return CByte(Sides.bottom)
         End If
 
-        Return False
+        Return CByte(Sides.none)
     End Function
 
-    Private Function horizontalCollisions(intersectRect As Rectangle, hitRect As Rectangle, trig As Boolean, bounce As Boolean) As Boolean
+    Private Function horizontalCollisions(intersectRect As Rectangle, hitRect As Rectangle, trig As Boolean, bounce As Boolean) As Byte
 
         If intersectRect.X = hitRect.X Then
             x = hitRect.X - width
             If bounce Then
                 bounceX(trig)
             End If
-            Return True
+            Return CByte(Sides.left)
 
         ElseIf intersectRect.X + intersectRect.Width = hitRect.X + hitRect.Width Then
             x = hitRect.Right
             If bounce Then
                 bounceX(trig)
             End If
-            Return True
+            Return CByte(Sides.right)
         End If
 
-        Return False
+        Return CByte(Sides.none)
     End Function
 
-    Public Function keepOutsideBounds(bounds As Rectangle, Optional trig As Boolean = False, Optional bounce As Boolean = False) As Boolean
+    Public Function keepOutsideBounds(bounds As Rectangle, Optional trig As Boolean = False, Optional bounce As Boolean = False) As Byte
         If VBGame.collideRect(getRect(), bounds) Then
+            Dim side As Byte
             Dim intersectRect As Rectangle = getRect()
 
             intersectRect.Intersect(bounds)
 
             If intersectRect.Width > intersectRect.Height Then
-                If Not verticalCollisions(intersectRect, bounds, trig, bounce) Then
+                side = verticalCollisions(intersectRect, bounds, trig, bounce)
+                If side = Sides.none Then
                     Return horizontalCollisions(intersectRect, bounds, trig, bounce)
                 Else
-                    Return True
+                    Return side
                 End If
 
             Else
-                If Not horizontalCollisions(intersectRect, bounds, trig, bounce) Then
+                side = horizontalCollisions(intersectRect, bounds, trig, bounce)
+                If side = Sides.none Then
                     Return verticalCollisions(intersectRect, bounds, trig, bounce)
                 Else
-                    Return True
+                    Return side
                 End If
             End If
         Else
-            Return False
+            Return CByte(Sides.none)
         End If
 
     End Function
