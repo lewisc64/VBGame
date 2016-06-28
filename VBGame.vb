@@ -137,20 +137,25 @@ Public Class DrawBase
     End Sub
 
     ''' <summary>
-    ''' Draws an image to the screen.
+    ''' Draws an image to the screen (scaled).
     ''' </summary>
     ''' <param name="image"></param>
     ''' <param name="rect"></param>
     ''' <remarks></remarks>
     Sub blit(image As Image, rect As Rectangle)
-        If Not IsNothing(image) Then
-            displaybuffer.Graphics.DrawImage(image, shiftRect(rect))
-        End If
+        displaybuffer.Graphics.DrawImage(image, rect, -0.5, -0.5, image.Width, image.Height, GraphicsUnit.Pixel)
     End Sub
 
-    Sub blitUnscaled(image As Image, point As Point)
+    ''' <summary>
+    ''' Draws an image to the screen (unscaled).
+    ''' </summary>
+    ''' <param name="image"></param>
+    ''' <param name="point"></param>
+    ''' <remarks></remarks>
+    Sub blit(image As Image, point As Point)
         If Not IsNothing(image) Then
             displaybuffer.Graphics.DrawImageUnscaled(image, shiftPoint(point))
+            image.Dispose()
         End If
     End Sub
 
@@ -164,7 +169,7 @@ Public Class DrawBase
         brush.Dispose()
     End Sub
 
-    Sub drawCenteredText(rect As Rectangle, s As String, color As System.Drawing.Color, Optional font As Font = Nothing)
+    Sub drawText(rect As Rectangle, s As String, color As System.Drawing.Color, Optional font As Font = Nothing)
         If IsNothing(font) Then
             font = New Font("Arial", 16)
         End If
@@ -174,7 +179,7 @@ Public Class DrawBase
     'line drawing ------------------------------------------------------------------
     Sub drawLines(ByVal points() As Point, color As System.Drawing.Color, Optional width As Integer = 1)
 
-        If x <> 0 And y <> 0 Then
+        If x <> 0 AndAlso y <> 0 Then
             For Each Point As Point In points
                 Point = shiftPoint(Point)
             Next
@@ -349,7 +354,7 @@ Public Class VBGame
         allocate()
 
         If sharppixels Then
-            displaybuffer.Graphics.SmoothingMode = Drawing2D.SmoothingMode.None
+            displaybuffer.Graphics.SmoothingMode = Drawing2D.SmoothingMode.HighSpeed
             displaybuffer.Graphics.InterpolationMode = Drawing2D.InterpolationMode.NearestNeighbor
         End If
 
@@ -452,9 +457,8 @@ Public Class VBGame
     Sub clockTick(fps As Double)
         Dim tfps As Double
         tfps = 1000 / fps
-        If fpstimer.ElapsedMilliseconds < tfps Then
-            Thread.Sleep(CInt(tfps - fpstimer.ElapsedMilliseconds))
-        End If
+        While fpstimer.ElapsedMilliseconds < tfps
+        End While
         fpstimer.Reset()
         fpstimer.Start()
     End Sub
@@ -474,8 +478,6 @@ Public Class VBGame
         g.CopyFromScreen(New Point(CInt(form.Location.X + (form.Width - form.DisplayRectangle().Width) / 2), CInt(form.Location.Y + (form.Height - form.DisplayRectangle().Height) * (15 / 19))), New Point(0, 0), New Size(width, height))
         Return bitmap
     End Function
-
-    'Drawing
 End Class
 
 ''' <summary>
@@ -568,6 +570,10 @@ Public Class Sound
             If vol > 1000 Then
                 vol = 1000
             End If
+
+            'Dim thread As New Thread(AddressOf Me.setVolume)
+            'thread.IsBackground = True
+            'thread.Start(vol)
             setVolume(vol)
         End Set
         Get
@@ -576,7 +582,7 @@ Public Class Sound
     End Property
 
     Sub load()
-        mciSendString("Open " & getPath() & " alias " & name, CStr(0), 0, 0)
+        mciSendString("Open """ & getPath() & """ alias """ & name & """", CStr(0), 0, 0)
     End Sub
 
     ''' <summary>
@@ -584,23 +590,33 @@ Public Class Sound
     ''' <param name="repeat">If enabled, the sound will loop. Note: this does not work with .wav files.</param>
     ''' <remarks></remarks>
     Sub play(Optional repeat As Boolean = False)
-        If repeat Then
-            mciSendString("play " & name & " repeat", CStr(0), 0, 0)
+        Dim thread As New Thread(AddressOf Me.playSync)
+        thread.IsBackground = True
+        thread.Start(repeat)
+    End Sub
+
+    Private Sub playSync(repeat As Object)
+        If CBool(repeat) Then
+            mciSendString("play """ & name & """ repeat", CStr(0), 0, 0)
         Else
-            mciSendString("play " & name, CStr(0), 0, 0)
+            mciSendString("play """ & name & """", CStr(0), 0, 0)
         End If
     End Sub
 
     Sub halt()
-        mciSendString("close " & name, CStr(0), 0, 0)
+        mciSendString("close """ & name & """", CStr(0), 0, 0)
     End Sub
 
     Sub pause()
-        mciSendString("pause " & name, CStr(0), 0, 0)
+        mciSendString("pause """ & name & """", CStr(0), 0, 0)
+    End Sub
+
+    Sub resumePaused()
+        mciSendString("resume """ & name & """", CStr(0), 0, 0)
     End Sub
 
     Private Sub setVolume(volume As Integer)
-        mciSendString("setaudio " & name & " volume to " & volume, CStr(0), 0, 0)
+        Console.WriteLine(mciSendString("setaudio """ & name & """ volume to " & CStr(volume), CStr(0), 0, 0))
     End Sub
 
     Private Function getPath() As String
@@ -1128,12 +1144,12 @@ Class Button
 
         If hover Then
             If IsNothing(hovertext) Then
-                display.drawCenteredText(getRect(), text, hovertextcolor, New Font(fontname, fontsize))
+                display.drawText(getRect(), text, hovertextcolor, New Font(fontname, fontsize))
             Else
-                display.drawCenteredText(getRect(), hovertext, hovertextcolor, New Font(fontname, fontsize))
+                display.drawText(getRect(), hovertext, hovertextcolor, New Font(fontname, fontsize))
             End If
         Else
-            display.drawCenteredText(getRect(), text, textcolor, New Font(fontname, fontsize))
+            display.drawText(getRect(), text, textcolor, New Font(fontname, fontsize))
         End If
 
     End Sub
