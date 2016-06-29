@@ -144,7 +144,7 @@ Public Class DrawBase
     ''' <param name="rect"></param>
     ''' <remarks></remarks>
     Sub blit(image As Image, rect As Rectangle)
-        displaybuffer.Graphics.DrawImage(image, rect, -0.5, -0.5, image.Width, image.Height, GraphicsUnit.Pixel)
+        displaybuffer.Graphics.DrawImage(image, shiftRect(rect), -0.5, -0.5, image.Width, image.Height, GraphicsUnit.Pixel)
     End Sub
 
     ''' <summary>
@@ -156,7 +156,6 @@ Public Class DrawBase
     Sub blit(image As Image, point As Point)
         If Not IsNothing(image) Then
             displaybuffer.Graphics.DrawImageUnscaled(image, shiftPoint(point))
-            image.Dispose()
         End If
     End Sub
 
