@@ -1340,8 +1340,8 @@ Class SimpleFont
     End Function
 
     Public Function getChar(c As Char) As Image
-        If Regex.IsMatch(c, "[0-9]") Then
-            Return characters(CInt(Val(c)))
+        If Regex.IsMatch(c, "[1-9]") Then
+            Return characters(CInt(Val(c)) - 1)
         ElseIf Regex.IsMatch(c, "[a-z]") Then
             Return characters(Asc(c) - Asc("a") + 10)
         ElseIf c = "!" Then
@@ -1352,6 +1352,8 @@ Class SimpleFont
             Return characters(38)
         ElseIf c = "." Then
             Return characters(39)
+        ElseIf c = "0" Then
+            Return characters(9)
         Else
             Return characters(40)
         End If
