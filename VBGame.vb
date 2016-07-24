@@ -6,6 +6,26 @@ Imports System.IO
 Imports System.Threading
 Imports System.Text.RegularExpressions
 
+Public Class Circle
+
+    Public x As Integer
+    Public y As Integer
+    Public radius As Integer
+
+    Public Sub New(cx As Integer, cy As Integer, rad As Integer)
+        x = cx
+        y = cy
+        radius = rad
+    End Sub
+
+    Public Sub New(center As Point, rad As Integer)
+        x = center.X
+        y = center.Y
+        radius = rad
+    End Sub
+
+End Class
+
 Public Class MouseEvent
 
     Enum buttons
@@ -125,12 +145,20 @@ Public Class DrawBase
         Return New Point(point.X + x, point.Y + y)
     End Function
 
+    Function shiftCircle(circle As Circle) As Circle
+        Return New Circle(circle.x + x, circle.y + y, circle.radius)
+    End Function
+
     Function getCenter() As Point
         Return New Point(CInt(width / 2), CInt(height / 2))
     End Function
 
     Sub fill(color As System.Drawing.Color)
         drawRect(getRect(), color)
+    End Sub
+
+    Sub fill(image As Image)
+        blit(image, getRect())
     End Sub
 
     ''' <summary>
@@ -211,9 +239,8 @@ Public Class DrawBase
         End If
     End Sub
 
-    Sub drawCircle(center As Point, radius As Integer, color As System.Drawing.Color, Optional filled As Boolean = True)
-        Dim rect As New Rectangle(center.X - radius, center.Y - radius, radius * 2, radius * 2)
-        drawEllipse(rect, color, filled) 'Rect shift not needed, ellipse takes care of that.
+    Sub drawCircle(circle As Circle, color As System.Drawing.Color, Optional filled As Boolean = True)
+        drawEllipse(VBGame.circleToRect(shiftCircle(circle)), color, filled) 'Rect shift not needed, ellipse takes care of that.
     End Sub
 
     Sub drawEllipse(rect As Rectangle, color As System.Drawing.Color, Optional filled As Boolean = True)
@@ -282,6 +309,15 @@ Public Class VBGame
 
     Public Shared Function collideRect(r1 As Rectangle, r2 As Rectangle) As Boolean
         Return (r1.Left < r2.Right AndAlso r2.Left < r1.Right AndAlso r1.Top < r2.Bottom AndAlso r2.Top < r1.Bottom)
+    End Function
+
+    Public Shared Function collideCircle(c1 As Circle, c2 As Circle) As Boolean
+        Dim ds As Double = Math.Pow(c1.x - c2.x, 2) + Math.Pow(c1.y - c2.y, 2)
+        Return (ds < Math.Pow(c1.radius, 2) OrElse ds < Math.Pow(c2.radius, 2))
+    End Function
+
+    Public Shared Function circleToRect(circle As Circle) As Rectangle
+        Return New Rectangle(circle.x - circle.radius, circle.y - circle.radius, circle.radius * 2, circle.radius * 2)
     End Function
 
     ''' <summary>
@@ -518,7 +554,7 @@ Public Class BitmapSurface
     Public Sub New(size As Size, Optional format As Imaging.PixelFormat = Nothing)
 
         If format = Imaging.PixelFormat.Undefined Then
-            format = Imaging.PixelFormat.Format24bppRgb
+            format = Imaging.PixelFormat.Format32bppArgb
         End If
 
         width = size.Width
