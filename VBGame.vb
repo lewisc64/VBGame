@@ -5,6 +5,7 @@ Imports System.Windows.Forms
 Imports System.IO
 Imports System.Threading
 Imports System.Text.RegularExpressions
+Imports System.Drawing.Drawing2D
 
 Public Class Circle
 
@@ -185,6 +186,18 @@ Public Class DrawBase
         End If
     End Sub
 
+    ''' <summary>
+    ''' Blits an unscaled image centering on the rectangle.
+    ''' </summary>
+    ''' <param name="image"></param>
+    ''' <param name="rect"></param>
+    ''' <remarks></remarks>
+    Sub blitCentered(image As Image, rect As Rectangle)
+        If Not IsNothing(image) Then
+            displaybuffer.Graphics.DrawImage(image, New Point(CInt((rect.X + (rect.Width / 2)) - (image.Width / 2)), CInt((rect.Y + (rect.Height / 2)) - (image.Height / 2))))
+        End If
+    End Sub
+
     Sub drawText(point As Point, s As String, color As System.Drawing.Color, Optional font As Font = Nothing)
         Dim brush As New System.Drawing.SolidBrush(color)
         If IsNothing(font) Then
@@ -307,6 +320,59 @@ Public Class VBGame
         Return Image.FromFile(path)
     End Function
 
+    Public Shared Function resizeImage(image As Image, scale As Double, Optional sharppixels As Boolean = True) As Image
+        Dim bitmap As New Bitmap(CInt(Image.Width * scale), CInt(Image.Height * scale))
+        Dim g As Graphics = Graphics.FromImage(Bitmap)
+        If sharppixels Then
+            g.SmoothingMode = SmoothingMode.None
+            g.InterpolationMode = InterpolationMode.NearestNeighbor
+        End If
+        g.DrawImage(image, New Rectangle(0, 0, bitmap.Width, bitmap.Height))
+        g.Dispose()
+        Return bitmap
+    End Function
+
+    ' Rotates the input image by theta degrees around center.
+    Public Shared Function RotateImage(bmpSrc As Bitmap, theta As Single) As Bitmap 'nicked from http://stackoverflow.com/questions/2352804/how-do-i-prevent-clipping-when-rotating-an-image-in-c
+        Dim mRotate As New Matrix()
+        mRotate.Translate(CSng(bmpSrc.Width / -2), CSng(bmpSrc.Height / -2), MatrixOrder.Append)
+        mRotate.RotateAt(theta, New System.Drawing.Point(0, 0), MatrixOrder.Append)
+        Using gp As New GraphicsPath()
+            ' transform image points by rotation matrix
+            gp.AddPolygon(New System.Drawing.Point() {New System.Drawing.Point(0, 0), New System.Drawing.Point(bmpSrc.Width, 0), New System.Drawing.Point(0, bmpSrc.Height)})
+            gp.Transform(mRotate)
+            Dim pts As System.Drawing.PointF() = gp.PathPoints
+
+            ' create destination bitmap sized to contain rotated source image
+            Dim bbox As Rectangle = boundingBox(bmpSrc, mRotate)
+            Dim bmpDest As New Bitmap(bbox.Width, bbox.Height)
+
+            Using gDest As Graphics = Graphics.FromImage(bmpDest)
+                ' draw source into dest
+                Dim mDest As New Matrix()
+                mDest.Translate(CSng(bmpDest.Width / 2), CSng(bmpDest.Height / 2), MatrixOrder.Append)
+                gDest.Transform = mDest
+                gDest.DrawImage(bmpSrc, pts)
+                Return bmpDest
+            End Using
+        End Using
+    End Function
+
+    Private Shared Function boundingBox(img As Image, matrix As Matrix) As Rectangle
+        Dim gu As New GraphicsUnit()
+        Dim rImg As Rectangle = Rectangle.Round(img.GetBounds(gu))
+
+        ' Transform the four points of the image, to get the resized bounding box.
+        Dim topLeft As New System.Drawing.Point(rImg.Left, rImg.Top)
+        Dim topRight As New System.Drawing.Point(rImg.Right, rImg.Top)
+        Dim bottomRight As New System.Drawing.Point(rImg.Right, rImg.Bottom)
+        Dim bottomLeft As New System.Drawing.Point(rImg.Left, rImg.Bottom)
+        Dim points As System.Drawing.Point() = New System.Drawing.Point() {topLeft, topRight, bottomRight, bottomLeft}
+        Dim gp As New GraphicsPath(points, New Byte() {CByte(PathPointType.Start), CByte(PathPointType.Line), CByte(PathPointType.Line), CByte(PathPointType.Line)})
+        gp.Transform(matrix)
+        Return Rectangle.Round(gp.GetBounds())
+    End Function
+
     Public Shared Function collideRect(r1 As Rectangle, r2 As Rectangle) As Boolean
         Return (r1.Left < r2.Right AndAlso r2.Left < r1.Right AndAlso r1.Top < r2.Bottom AndAlso r2.Top < r1.Bottom)
     End Function
@@ -318,6 +384,10 @@ Public Class VBGame
 
     Public Shared Function circleToRect(circle As Circle) As Rectangle
         Return New Rectangle(circle.x - circle.radius, circle.y - circle.radius, circle.radius * 2, circle.radius * 2)
+    End Function
+
+    Public Shared Function rectToCircle(rect As Rectangle) As Circle
+        Return New Circle(CInt(rect.X + rect.Width / 2), CInt(rect.Y + rect.Height / 2), CInt((rect.Width + rect.Height) / 2))
     End Function
 
     ''' <summary>
@@ -542,6 +612,9 @@ Public Class Surface
         parentgraphics = parentdisplay.displaybuffer.Graphics
 
         allocate()
+
+        displaybuffer.Graphics.InterpolationMode = parentdisplay.displaybuffer.Graphics.InterpolationMode
+        displaybuffer.Graphics.SmoothingMode = parentdisplay.displaybuffer.Graphics.SmoothingMode
     End Sub
 
 End Class
@@ -624,10 +697,14 @@ Public Class Sound
     ''' </summary>
     ''' <param name="repeat">If enabled, the sound will loop. Note: this does not work with .wav files.</param>
     ''' <remarks></remarks>
-    Sub play(Optional repeat As Boolean = False)
-        Dim thread As New Thread(AddressOf Me.playSync)
-        thread.IsBackground = True
-        thread.Start(repeat)
+    Sub play(Optional repeat As Boolean = False, Optional threaded As Boolean = False)
+        If threaded Then
+            Dim thread As New Thread(AddressOf Me.playSync)
+            thread.IsBackground = True
+            thread.Start(repeat)
+        Else
+            playSync(repeat)
+        End If
     End Sub
 
     Private Sub playSync(repeat As Object)
@@ -1227,6 +1304,8 @@ Class TextInput
     Public fontColor As Color
     Public color As Color
 
+    Public maxLength As Integer = 10
+
     Public allowNewLine As Boolean
 
     Private blinkTimer As New Stopwatch
@@ -1325,11 +1404,7 @@ Class TextInput
     End Sub
 
     Private Function checkLength(s As String) As Boolean
-        'Dim size As SizeF = display.displaybuffer.Graphics.MeasureString(text & s, New Font(fontName, fontSize))
-        'If size.Width > width OrElse size.Height > height Then
-        '    Return False
-        'End If
-        Return True
+        Return s.Length < maxLength
     End Function
 
     Public Sub draw(mdisplay As VBGame)
