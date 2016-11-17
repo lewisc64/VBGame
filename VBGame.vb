@@ -149,6 +149,10 @@ Namespace VBGame
             Return Image.FromFile(path)
         End Function
 
+        Public Shared Function loadEmbedded(obj As Object, name As String) As Image
+            Return New System.Drawing.Bitmap(System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(obj.GetType(), name))
+        End Function
+
         ''' <summary>
         ''' Saves image to a file
         ''' </summary>
@@ -391,11 +395,7 @@ Namespace VBGame
         ''' </summary>
         ''' <remarks></remarks>
         Public Sub update()
-            Try
-                displaybuffer.Render()
-            Catch ex As System.ArgumentException
-                End
-            End Try
+            displaybuffer.Render()
         End Sub
 
         ''' <summary>
@@ -698,6 +698,10 @@ Namespace VBGame
 
         Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyUp
             keyupevents.Add(e)
+        End Sub
+
+        Private Sub form_FormClosing(ByVal sender As Object, ByVal e As EventArgs) Handles form.FormClosing
+            End
         End Sub
 
         ''' <summary>
