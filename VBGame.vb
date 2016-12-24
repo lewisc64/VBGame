@@ -812,6 +812,7 @@ Namespace VBGame
         End Function
 
         Private Shared nextID As Integer = 0
+        Public Shared mute As Boolean = False
 
         Public name As String
         Public filename As String
@@ -864,12 +865,14 @@ Namespace VBGame
         ''' <param name="repeat">If enabled, the sound will loop. Note: this does not work with .wav files.</param>
         ''' <remarks></remarks>
         Sub play(Optional repeat As Boolean = False, Optional threaded As Boolean = False)
-            If threaded Then
-                Dim thread As New Thread(AddressOf Me.playSync)
-                thread.IsBackground = True
-                thread.Start(repeat)
-            Else
-                playSync(repeat)
+            If Not mute Then
+                If threaded Then
+                    Dim thread As New Thread(AddressOf Me.playSync)
+                    thread.IsBackground = True
+                    thread.Start(repeat)
+                Else
+                    playSync(repeat)
+                End If
             End If
         End Sub
 
@@ -1656,16 +1659,18 @@ Namespace VBGame
 
     Public Class XMLIO
 
+        Public Shared knownTypes As Type() = {}
+
         Public Shared Sub Write(path As String, obj As Object)
             Dim writer As New StreamWriter(path)
-            Dim x As New XmlSerializer(obj.GetType())
+            Dim x As New XmlSerializer(obj.GetType(), knownTypes)
             x.Serialize(writer, obj)
             writer.Close()
         End Sub
 
         Public Shared Sub Read(path As String, ByRef obj As Object)
             Dim reader As New StreamReader(path)
-            Dim x As New XmlSerializer(obj.GetType())
+            Dim x As New XmlSerializer(obj.GetType(), knownTypes)
             obj = x.Deserialize(reader)
             reader.Close()
         End Sub
