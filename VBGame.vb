@@ -1,4 +1,4 @@
-Option Explicit On
+﻿Option Explicit On
 Option Strict On
 
 Imports System.Windows.Forms
@@ -218,6 +218,13 @@ Namespace VBGame
             Dim gp As New GraphicsPath(points, New Byte() {CByte(PathPointType.Start), CByte(PathPointType.Line), CByte(PathPointType.Line), CByte(PathPointType.Line)})
             gp.Transform(matrix)
             Return Rectangle.Round(gp.GetBounds())
+        End Function
+
+        Public Shared Function getRegionOfImage(image As Image, rect As Rectangle) As Image
+            Dim output As Image = New Bitmap(rect.Width, rect.Height)
+            Dim g As Graphics = Graphics.FromImage(output)
+            g.DrawImage(image, New Rectangle(0, 0, output.Width, output.Height), rect, GraphicsUnit.Pixel)
+            Return output
         End Function
 
         ''' <summary>
@@ -667,40 +674,40 @@ Namespace VBGame
 
         'Form event hooks.
 
-        Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseWheel
+        Private Sub form_MouseWheel(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseWheel
             mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.scroll)))
             mouse = e
         End Sub
 
-        Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseMove
+        Private Sub form_MouseMove(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseMove
             mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.move)))
             mouse = e
         End Sub
 
-        Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDown
+        Private Sub form_MouseDown(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseDown
             mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.down)))
             mouse = e
         End Sub
 
-        Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseClick
+        Private Sub form_MouseClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseClick
             mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.up)))
             mouse = e
         End Sub
 
-        Private Sub form_MouseDoubleClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles form.MouseDoubleClick
+        Private Sub form_MouseDoubleClick(ByVal sender As Object, ByVal e As MouseEventArgs) Handles Form.MouseDoubleClick
             mouseevents.Add(MouseEvent.InterpretFormEvent(e, CByte(MouseEvent.actions.up)))
             mouse = e
         End Sub
 
-        Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyDown
+        Private Sub form_KeyDown(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyDown
             keydownevents.Add(e)
         End Sub
 
-        Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles form.KeyUp
+        Private Sub form_KeyUp(ByVal sender As Object, ByVal e As KeyEventArgs) Handles Form.KeyUp
             keyupevents.Add(e)
         End Sub
 
-        Private Sub form_FormClosing(ByVal sender As Object, ByVal e As EventArgs) Handles form.FormClosing
+        Private Sub form_FormClosing(ByVal sender As Object, ByVal e As EventArgs) Handles Form.FormClosing
             End
         End Sub
 
@@ -791,7 +798,7 @@ Namespace VBGame
             allocate()
         End Sub
 
-        Public Function getImage(Optional autoupdate As Boolean = True) As Image
+        Public Function getImage(Optional autoupdate As Boolean = True) As Bitmap
             If autoupdate Then
                 update()
             End If
